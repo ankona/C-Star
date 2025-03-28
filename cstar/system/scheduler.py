@@ -386,33 +386,41 @@ class Scheduler(ABC):
         """Abstract method to retrieve the maximum memory available per node across all
         queues."""
         pass
-    
+
     @classmethod
     @abstractmethod
     def _nodelist_cmd(cls) -> str:
         """Abstract method to retrieve the command producing a node list for a
         scheduler implementation."""
         pass
-    
+
     @classmethod
-    def _create_nodelist_cmd(node_filter: str, filter_opts: Optional[str] = "") -> str:
+    def _create_nodelist_cmd(
+        cls,
+        node_filter: str,
+        filter_opts: Optional[str] = "",
+        column_opts: Optional[str] = "-d= -f2",
+    ) -> str:
         """Create an executable command that will retrieve a sorted,
         filtered list of nodes.
-        
+
         Parameters:
         ----------
         node_filter: str
             A filter applied to the raw node list
-        
+
         Returns:
         -------
             The command to be executed
         """
-        nodelist_cmd = self._nodelist_cmd()
-        return f'{nodelist_cmd} | grep {filter_opts} "{node_filter}" | cut -d= -f2 | sort -nr | head -1'
+        nodelist_cmd = cls._nodelist_cmd()
+        filter_op = f"{filter_opts} " if filter_opts else ""
+        item_filter = f'{filter_op}"{node_filter}"'
+
+        return f"{nodelist_cmd} | grep {item_filter} | cut {column_opts} | sort -nr | head -1"
 
     @classmethod
-    def _execute_nodelist_cmd(cmd: str) -> str:
+    def _execute_nodelist_cmd(cls, cmd: str) -> str:
         """Execute a command with the scheduler."""
         result = subprocess.run(
             cmd,
@@ -420,9 +428,9 @@ class Scheduler(ABC):
             text=True,
             capture_output=True,
         )
-        
+
         if result.returncode == 0:
-            return result.stdout.strip() 
+            return result.stdout.strip()
 
         print(f"Error querying node property. STDERR: {result.stderr}")
         return ""
@@ -513,6 +521,7 @@ class SlurmScheduler(Scheduler):
         """The command producing a node list for the SLURM scheduler."""
         return "scontrol show nodes"
 
+
 class PBSScheduler(Scheduler):
     """Represents a PBS (Portable Batch System) job scheduler.
 
@@ -584,8 +593,10 @@ class PBSScheduler(Scheduler):
             If the command to query the PBS scheduler fails.
         """
 
-        cmd = self._create_nodelist_cmd("resources_available.mem")
-        if so := self._execute_nodelist_cmd(cmd)
+        cmd = self._create_nodelist_cmd(
+            "resources_available.mem", column_opts="-d== -f2"
+        )
+        if so := self._execute_nodelist_cmd(cmd):
             if so.endswith("kb"):
                 return float(so[:-2]) / (1024**2)  # Convert kilobytes to gigabytes
             elif so.endswith("mb"):
