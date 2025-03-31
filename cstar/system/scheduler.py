@@ -1,6 +1,6 @@
 import subprocess
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
+from typing import Any, Callable, Generator, List, Dict, Optional
 
 ################################################################################
 
@@ -192,6 +192,82 @@ class SlurmPartition(SlurmQueue):
             raise RuntimeError(f"Command {sp_cmd} failed: {sp_run.stderr.strip()}")
         mw = sp_run.stdout.strip()
         return self._parse_walltime(mw) if mw else None
+
+
+# from contextlib import contextmanager
+
+
+# class Runner:
+#     """A simple class to run a command and capture its output.
+
+#     It only exists so the context manager can yield a single object that the
+#     user can call .run() on to execute the command.
+#     """
+
+#     def __init__(self, cmd) -> None:
+#         self.cmd: str = cmd
+#         self.returncode = 0
+#         self.stdout: str = ""
+#         self.stderr: str = ""
+
+#     def run(self) -> None:
+#         """Run the command and yield the result."""
+#         result = subprocess.run(self.cmd, shell=True, text=True, capture_output=True)
+#         self.returncode = result.returncode
+#         self.stdout = result.stdout if result.returncode == 0 else ""
+#         self.stderr = result.stderr
+
+
+# @contextmanager
+# def subproc_helper(cmd: str, err_msg: str) -> Generator[Runner]:
+#     """Context manager to handle subprocess execution and error reporting."""
+#     runner = Runner(cmd)
+
+#     try:
+#         print("starting runner with command:", runner.cmd)
+#         yield runner
+
+#         if runner.returncode != 0:
+
+#             if err_msg:
+#                 err_msg = err_msg.format(
+#                     returncode=runner.returncode, stderr=runner.stderr
+#                 )
+#             else:
+#                 err_msg = (
+#                     f"Command {runner.cmd} failed with return code {runner.returncode}"
+#                 )
+
+#             raise RuntimeError(err_msg)
+
+#         print(f"subprocess {runner.cmd} succeeded with return code {runner.returncode}")
+
+#     except subprocess.CalledProcessError as e:
+#         print(err_msg.format(r=e))
+#         raise RuntimeError(f"Command {runner.cmd} failed: {e}") from e
+
+
+def handle_subprocess(
+    fn: Callable[[], subprocess.CompletedProcess],
+) -> Callable[[None], Any]:
+    """Decorator to wrap a function with subprocess error handling."""
+
+    def _inner(*args, **kwargs) -> Any:
+        """Wrapper function to execute a command and handle exceptions."""
+        try:
+            print("Executing command:", args[0] if args else "No command provided")
+            result = fn(*args, **kwargs)
+        except RuntimeError as e:
+            print(f"Error executing command: {e}")
+            return None
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Command {args[0]} failed with return code {result.returncode}: {result.stderr}"
+            )
+        return result.stdout.strip()
+
+    return _inner
 
 
 class PBSQueue(Queue):
@@ -422,6 +498,12 @@ class Scheduler(ABC):
     @classmethod
     def _execute_nodelist_cmd(cls, cmd: str) -> str:
         """Execute a command with the scheduler."""
+        # with subproc_helper(cmd, "Error querying node property. STDERR: {stderr}") as p:
+        #     p.run()
+
+        # return p.stdout
+        print(f"Retrieving nodelist: {cmd}")
+
         result = subprocess.run(
             cmd,
             shell=True,
@@ -434,6 +516,18 @@ class Scheduler(ABC):
 
         print(f"Error querying node property. STDERR: {result.stderr}")
         return ""
+
+
+# def command_executer(fn: Callable[[None], Any]) -> Callable[[None], Any]:
+#     def _inner(*args, **kwargs) -> Any:
+#         """Wrapper function to execute a command and handle exceptions."""
+#         try:
+#             return fn(*args, **kwargs)
+#         except RuntimeError as e:
+#             print(f"Error executing command: {e}")
+#             return None
+
+#     return _inner
 
 
 class SlurmScheduler(Scheduler):
