@@ -1,6 +1,6 @@
 import subprocess
 from abc import ABC, abstractmethod
-from typing import List, Dict, Optional
+from typing import Any, Callable, Generator, List, Dict, Optional
 
 ################################################################################
 
@@ -192,6 +192,82 @@ class SlurmPartition(SlurmQueue):
             raise RuntimeError(f"Command {sp_cmd} failed: {sp_run.stderr.strip()}")
         mw = sp_run.stdout.strip()
         return self._parse_walltime(mw) if mw else None
+
+
+# from contextlib import contextmanager
+
+
+# class Runner:
+#     """A simple class to run a command and capture its output.
+
+#     It only exists so the context manager can yield a single object that the
+#     user can call .run() on to execute the command.
+#     """
+
+#     def __init__(self, cmd) -> None:
+#         self.cmd: str = cmd
+#         self.returncode = 0
+#         self.stdout: str = ""
+#         self.stderr: str = ""
+
+#     def run(self) -> None:
+#         """Run the command and yield the result."""
+#         result = subprocess.run(self.cmd, shell=True, text=True, capture_output=True)
+#         self.returncode = result.returncode
+#         self.stdout = result.stdout if result.returncode == 0 else ""
+#         self.stderr = result.stderr
+
+
+# @contextmanager
+# def subproc_helper(cmd: str, err_msg: str) -> Generator[Runner]:
+#     """Context manager to handle subprocess execution and error reporting."""
+#     runner = Runner(cmd)
+
+#     try:
+#         print("starting runner with command:", runner.cmd)
+#         yield runner
+
+#         if runner.returncode != 0:
+
+#             if err_msg:
+#                 err_msg = err_msg.format(
+#                     returncode=runner.returncode, stderr=runner.stderr
+#                 )
+#             else:
+#                 err_msg = (
+#                     f"Command {runner.cmd} failed with return code {runner.returncode}"
+#                 )
+
+#             raise RuntimeError(err_msg)
+
+#         print(f"subprocess {runner.cmd} succeeded with return code {runner.returncode}")
+
+#     except subprocess.CalledProcessError as e:
+#         print(err_msg.format(r=e))
+#         raise RuntimeError(f"Command {runner.cmd} failed: {e}") from e
+
+
+def handle_subprocess(
+    fn: Callable[[], subprocess.CompletedProcess],
+) -> Callable[[None], Any]:
+    """Decorator to wrap a function with subprocess error handling."""
+
+    def _inner(*args, **kwargs) -> Any:
+        """Wrapper function to execute a command and handle exceptions."""
+        try:
+            print("Executing command:", args[0] if args else "No command provided")
+            result = fn(*args, **kwargs)
+        except RuntimeError as e:
+            print(f"Error executing command: {e}")
+            return None
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Command {args[0]} failed with return code {result.returncode}: {result.stderr}"
+            )
+        return result.stdout.strip()
+
+    return _inner
 
 
 class PBSQueue(Queue):
@@ -387,6 +463,72 @@ class Scheduler(ABC):
         queues."""
         pass
 
+    @classmethod
+    @abstractmethod
+    def _nodelist_cmd(cls) -> str:
+        """Abstract method to retrieve the command producing a node list for a
+        scheduler implementation."""
+        pass
+
+    @classmethod
+    def _create_nodelist_cmd(
+        cls,
+        node_filter: str,
+        filter_opts: Optional[str] = "",
+        column_opts: Optional[str] = "-d= -f2",
+    ) -> str:
+        """Create an executable command that will retrieve a sorted,
+        filtered list of nodes.
+
+        Parameters:
+        ----------
+        node_filter: str
+            A filter applied to the raw node list
+
+        Returns:
+        -------
+            The command to be executed
+        """
+        nodelist_cmd = cls._nodelist_cmd()
+        filter_op = f"{filter_opts} " if filter_opts else ""
+        item_filter = f'{filter_op}"{node_filter}"'
+
+        return f"{nodelist_cmd} | grep {item_filter} | cut {column_opts} | sort -nr | head -1"
+
+    @classmethod
+    def _execute_nodelist_cmd(cls, cmd: str) -> str:
+        """Execute a command with the scheduler."""
+        # with subproc_helper(cmd, "Error querying node property. STDERR: {stderr}") as p:
+        #     p.run()
+
+        # return p.stdout
+        print(f"Retrieving nodelist: {cmd}")
+
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            text=True,
+            capture_output=True,
+        )
+
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+        print(f"Error querying node property. STDERR: {result.stderr}")
+        return ""
+
+
+# def command_executer(fn: Callable[[None], Any]) -> Callable[[None], Any]:
+#     def _inner(*args, **kwargs) -> Any:
+#         """Wrapper function to execute a command and handle exceptions."""
+#         try:
+#             return fn(*args, **kwargs)
+#         except RuntimeError as e:
+#             print(f"Error executing command: {e}")
+#             return None
+
+#     return _inner
+
 
 class SlurmScheduler(Scheduler):
     """Represents a SLURM job scheduler.
@@ -440,16 +582,10 @@ class SlurmScheduler(Scheduler):
         RuntimeError
             If the command to query the SLURM scheduler fails.
         """
-        result = subprocess.run(
-            'scontrol show nodes | grep -o "cpu=[0-9]*" | cut -d= -f2 | sort -nr | head -1',
-            shell=True,
-            text=True,
-            capture_output=True,
-        )
-        if result.returncode != 0:
-            print(f"Error querying node property. STDERR: {result.stderr}")
-        so = result.stdout.strip()
-        return int(so) if so else None
+        cmd = self._create_nodelist_cmd("cpu=[0-9]*", "-o")
+        if so := self._execute_nodelist_cmd(cmd):
+            return int(so)
+        return None
 
     @property
     def global_max_mem_per_node_gb(self) -> Optional[float]:
@@ -469,17 +605,15 @@ class SlurmScheduler(Scheduler):
         RuntimeError
             If the command to query the SLURM scheduler fails.
         """
+        cmd = self._create_nodelist_cmd("RealMemory=[0-9]*", "-o")
+        if so := self._execute_nodelist_cmd(cmd):
+            return float(so) / 1024
+        return None
 
-        result = subprocess.run(
-            'scontrol show nodes | grep -o "RealMemory=[0-9]*" | cut -d= -f2 | sort -nr | head -1',
-            shell=True,
-            text=True,
-            capture_output=True,
-        )
-        if result.returncode != 0:
-            print(f"Error querying node property. STDERR: {result.stderr}")
-        so = result.stdout.strip()
-        return float(so) / (1024) if so else None
+    @classmethod
+    def _nodelist_cmd(cls) -> str:
+        """The command producing a node list for the SLURM scheduler."""
+        return "scontrol show nodes"
 
 
 class PBSScheduler(Scheduler):
@@ -529,17 +663,10 @@ class PBSScheduler(Scheduler):
         RuntimeError
             If the command to query the PBS scheduler fails.
         """
-
-        result = subprocess.run(
-            'pbsnodes -a | grep "resources_available.ncpus" | cut -d= -f2 | sort -nr | head -1',
-            shell=True,
-            text=True,
-            capture_output=True,
-        )
-        if result.returncode != 0:
-            print(f"Error querying node property. STDERR: {result.stderr}")
-        so = result.stdout.strip()
-        return int(so) if so else None
+        cmd = self._create_nodelist_cmd("resources_available.ncpus")
+        if so := self._execute_nodelist_cmd(cmd):
+            return int(so)
+        return None
 
     @property
     def global_max_mem_per_node_gb(self) -> Optional[float]:
@@ -560,23 +687,23 @@ class PBSScheduler(Scheduler):
             If the command to query the PBS scheduler fails.
         """
 
-        result = subprocess.run(
-            'pbsnodes -a | grep "resources_available.mem" | cut -d== -f2 | sort -nr | head -1',
-            shell=True,
-            text=True,
-            capture_output=True,
+        cmd = self._create_nodelist_cmd(
+            "resources_available.mem", column_opts="-d== -f2"
         )
-        if result.returncode != 0:
-            print(f"Error querying node property. STDERR: {result.stderr}")
-        so = result.stdout.strip()
-        if so.endswith("kb"):
-            return float(so[:-2]) / (1024**2)  # Convert kilobytes to gigabytes
-        elif so.endswith("mb"):
-            return float(so[:-2]) / 1024  # Convert megabytes to gigabytes
-        elif so.endswith("gb"):
-            return float(so[:-2])  # Already in gigabytes
-        else:
-            return None
+        if so := self._execute_nodelist_cmd(cmd):
+            if so.endswith("kb"):
+                return float(so[:-2]) / (1024**2)  # Convert kilobytes to gigabytes
+            elif so.endswith("mb"):
+                return float(so[:-2]) / 1024  # Convert megabytes to gigabytes
+            elif so.endswith("gb"):
+                return float(so[:-2])  # Already in gigabytes
+
+        return None
+
+    @classmethod
+    def _nodelist_cmd(cls) -> str:
+        """The command producing a node list for the SLURM scheduler."""
+        return "pbsnodes -a"
 
 
 ################################################################################

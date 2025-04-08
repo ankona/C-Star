@@ -301,9 +301,23 @@ class ExternalCodeBase(ABC):
                     else:
                         print("invalid selection; enter 'y','n',or 'custom'")
 
-    @abstractmethod
-    def get(self, target: str | Path) -> None:
-        """Clone the external codebase to your local machine."""
+    @classmethod
+    def _execute_cmd(cls, cmd: str, msg_pre: str, msg_post: str) -> str:
+        """Execute a command with the scheduler."""
+        print(f"Running command: {cmd}")
+
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            text=True,
+            capture_output=True,
+        )
+
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+        print(f"Error querying node property. STDERR: {result.stderr}")
+        return ""
 
     def _codebase_adjustments(self) -> None:
         """Perform any C-Star specific adjustments to the external codebase that would

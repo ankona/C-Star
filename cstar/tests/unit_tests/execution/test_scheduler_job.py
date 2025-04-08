@@ -39,6 +39,10 @@ class MockSchedulerJob(SchedulerJob):
     def script(self):
         pass
 
+    @classmethod
+    def _nodelist_cmd(cls) -> str:
+        return "mock_nodelist_cmd"
+
 
 class MockScheduler(Scheduler):
     """Mock implementation of the `Scheduler` ABC for testing purposes.
@@ -79,6 +83,10 @@ class MockScheduler(Scheduler):
     @property
     def global_max_mem_per_node_gb(self):
         return 128  # Mocked maximum memory in GB
+
+    @classmethod
+    def _nodelist_cmd(cls) -> str:
+        return "mock_nodelist_cmd"
 
 
 class TestSchedulerJobBase:
