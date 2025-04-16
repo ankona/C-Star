@@ -133,3 +133,6 @@ dask-worker-space/
 
 # Vscode
 .vscode/
+
+# Tutorial outputs
+examples/outputs
