@@ -77,8 +77,6 @@ def test_update_user_dotenv(tmp_path):
 
     k1, v1 = "ANOTHER_VAR", "world"
     additional_env = {k1: v1}
-    # initial_env_content = "FAKE_VAR=hello"
-    # additional_env_content = "ANOTHER_VAR=world"
 
     # Temporary environment file path within the temporary directory
     mock_env_file = tmp_path / ".cstar.env"
@@ -112,11 +110,11 @@ def test_update_user_dotenv(tmp_path):
             final_written_content = f.read()
 
         # Expected content after the second call
-        # expected_second_write = expected_first_write + additional_env_content
-
-        # Assert the final content matches the expected content
-        # assert final_written_content == expected_second_write
         assert f"{k1}={v1}" in final_written_content
+
+        # Ensure the second update did not remove content from the first call
+        assert expected_base_content in final_written_content
+        assert f"{k0}={v0}" in final_written_content
 
 
 class TestCloneAndCheckout:
@@ -553,8 +551,12 @@ class TestDictToTree:
         input_dict = {"branch1": ["leaf1", "leaf2"], "branch2": ["leaf3"]}
         result = _dict_to_tree(input_dict)
         expected_output = (
-            "├── branch1\n│   ├── leaf1\n│   └── leaf2\n└── branch2\n    └── leaf3\n"
-        )
+            "├── branch1\n"
+            "│   ├── leaf1\n"
+            "│   └── leaf2\n"
+            "└── branch2\n"
+            "    └── leaf3\n"
+        )  # fmt: skip
         assert result == expected_output
 
     def test_nested_dict(self):
