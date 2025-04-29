@@ -121,8 +121,8 @@ class TestMARBLExternalCodeBaseGet:
         )
 
         ## Check that _update_user_dotenv was (mock) called correctly
-        env_file_str = f'MARBL_ROOT="{marbl_dir}"\n'
-        self.mock_update_user_dotenv.assert_called_once_with(env_file_str)
+        env_vars = {"MARBL_ROOT": f'"{str(marbl_dir)}"'}
+        self.mock_update_user_dotenv.assert_called_once_with(env_vars)
 
         self.mock_subprocess_run.assert_called_once_with(
             f"make {cstar_sysmgr.environment.compiler} USEMPI=TRUE",

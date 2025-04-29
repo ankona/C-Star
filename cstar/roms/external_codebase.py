@@ -79,10 +79,12 @@ class ROMSExternalCodeBase(ExternalCodeBase):
         os.environ["PATH"] = os.environ.get("PATH", "") + f":{target}/Tools-Roms/"
         # os.environ["PATH"] += f":{target}/Tools-Roms/"
         cstar_sysmgr.environment.environment_variables["PATH"] = os.environ["PATH"]
-        env_file_str = (
-            f"ROMS_ROOT={target}" + "\nPATH=${PATH}:" + f"{target}/Tools-Roms\n"
+        _update_user_dotenv(
+            {
+                "ROMS_ROOT": str(target),
+                "PATH": f"${{PATH}}:{target}/Tools-Roms",
+            }
         )
-        _update_user_dotenv(env_file_str)
 
         # Distribute custom makefiles for ROMS
         self._codebase_adjustments()

@@ -135,12 +135,12 @@ class TestROMSExternalCodeBaseGet:
             checkout_target=roms_codebase.checkout_target,
         )
 
-        ## Check that _update_user_dotenv was (mock) called correctly
-        env_file_str = (
-            f"ROMS_ROOT={roms_dir}" + "\nPATH=${PATH}:" + f"{roms_dir}/Tools-Roms\n"
-        )
+        env_vars = {
+            "ROMS_ROOT": str(roms_dir),
+            "PATH": f"${{PATH}}:{roms_dir}/Tools-Roms",
+        }
 
-        self.mock_update_user_dotenv.assert_called_once_with(env_file_str)
+        self.mock_update_user_dotenv.assert_called_once_with(env_vars)
 
         ## Check that subprocess.run was (mock) called twice for `make nhmg` and `make Tools-Roms`
         assert self.mock_subprocess_run.call_count == 2
