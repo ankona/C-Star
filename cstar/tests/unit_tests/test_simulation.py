@@ -38,7 +38,7 @@ class MockExternalCodeBase(ExternalCodeBase):
 
     @property
     def default_source_repo(self) -> str:
-        """A mock sourc repo to use.
+        """A mock source repo to use.
 
         Returns:
         -------

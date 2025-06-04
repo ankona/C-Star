@@ -177,7 +177,7 @@ class TestSetupEnvironmentFromFiles:
                 compiler="gnu",
             )
 
-            # Define expected final environment variables after merging and expansion}
+            # Define expected final environment variables after merging and expansion
             expected_env_vars = {
                 "NETCDFHOME": "/mock/netcdf/",  # Expanded from ${NETCDF_FORTRANHOME}
                 "MPIHOME": "/mock/mpi/",  # Expanded from ${MVAPICH2HOME}

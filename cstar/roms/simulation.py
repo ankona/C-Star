@@ -1059,7 +1059,7 @@ class ROMSSimulation(Simulation):
             simulation_tree_dict.setdefault("compile_time_code", {})
             simulation_tree_dict["compile_time_code"] = [
                 compile_time_code.split("/")[-1]
-                for compile_time_code in self.runtime_code.files
+                for compile_time_code in self.compile_time_code.files
             ]
         print_dict = {}
         print_dict["ROMS"] = simulation_tree_dict
