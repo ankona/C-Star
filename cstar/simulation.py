@@ -327,12 +327,12 @@ class Simulation(ABC, LoggingMixin):
 
         # Runtime code:
         if self.runtime_code is not None:
-            NN = len(self.runtime_code.files or [])
+            NN = len(self.runtime_code.files)
             base_str += f"Runtime code: {self.runtime_code.__class__.__name__} instance with {NN} files (query using {class_name}.runtime_code)\n"
 
         # Compile-time code:
         if self.compile_time_code is not None:
-            NN = len(self.compile_time_code.files or [])
+            NN = len(self.compile_time_code.files)
             base_str += f"Compile-time code: {self.compile_time_code.__class__.__name__} instance with {NN} files (query using {class_name}.compile_time_code)"
 
         exe_path = getattr(self, "exe_path", None)
