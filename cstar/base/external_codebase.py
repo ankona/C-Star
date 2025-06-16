@@ -175,10 +175,7 @@ class ExternalCodeBase(ABC, LoggingMixin):
         """
 
         # check 1: X_ROOT variable is in user's env
-        env_var_exists = (
-            self.expected_env_var
-            in cstar_sysmgr.environment.environment_variables.keys()
-        )
+        env_var_exists = os.environ.get(self.expected_env_var, None)
 
         # check 2: X_ROOT points to the correct repository
         if env_var_exists:
@@ -223,11 +220,7 @@ class ExternalCodeBase(ABC, LoggingMixin):
            - 3: The expected environment variable is not present and it is assumed the external codebase is not installed locally
                -> prompt installation of the external codebase
         """
-        local_root = Path(
-            cstar_sysmgr.environment.environment_variables.get(
-                self.expected_env_var, ""
-            )
-        )
+        local_root = Path(os.environ.get(self.expected_env_var, ""))
 
         interactive = bool(int(os.environ.get("CSTAR_INTERACTIVE", "1")))
 

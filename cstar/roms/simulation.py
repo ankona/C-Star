@@ -1198,6 +1198,28 @@ class ROMSSimulation(Simulation):
                     return False
         return True
 
+        # sim_has_start = isinstance(self.start_date, datetime)
+        # sim_has_end = isinstance(self.end_date, datetime)
+        # nonlocal_datasets = [x for x in self.input_datasets if not x.exists_locally]
+
+        # # Compare the dataset and simulation date ranges
+        # for ds in nonlocal_datasets:
+        #     if not isinstance(ds.start_date, datetime):
+        #         self.log.debug(f"Dataset {ds.source.location} start date is not set.")
+        #         return False
+        #     elif not isinstance(ds.end_date, datetime):
+        #         self.log.debug(f"Dataset {ds.source.location} end date is not set.")
+        #         return False
+        #     elif not sim_has_start or not sim_has_end:
+        #         self.log.debug("Simulation is missing start or end date.")
+        #         return False
+        #     elif (ds.start_date <= self.end_date) and (ds.end_date >= self.start_date):
+        #         self.log.debug(
+        #             f"Simulation and dataset {ds.source.location} dates do not overlap."
+        #         )
+        #         return False
+        # return True
+
     def build(self, rebuild: bool = False) -> None:
         """Compile the ROMS executable from source code.
 
@@ -1626,8 +1648,8 @@ class ROMSSimulation(Simulation):
 
         # Reset cached data for input datasets
         for inp in new_sim.input_datasets:
-            inp._local_file_hash_cache = None
-            inp._local_file_stat_cache = None
+            inp._local_file_hash_cache.clear()
+            inp._local_file_stat_cache.clear()
             inp.working_path = None
 
         return new_sim

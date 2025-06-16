@@ -3,7 +3,7 @@ import os
 import platform
 from pathlib import Path
 
-from dotenv import dotenv_values, load_dotenv, set_key
+from dotenv import dotenv_values, set_key
 
 from cstar.base.utils import _run_cmd
 
@@ -70,7 +70,7 @@ class CStarEnvironment:
             self.load_lmod_modules(
                 lmod_file=f"{self.package_root}/additional_files/lmod_lists/{self._system_name}.lmod"
             )
-        os.environ.update(self.environment_variables)
+        self._load_environment()
 
     @property
     def mpi_exec_prefix(self):
@@ -95,7 +95,7 @@ class CStarEnvironment:
         base_str += f"\nMPI Exec Prefix: {self.mpi_exec_prefix}"
         base_str += f"\nUses Lmod: {True if self.uses_lmod else False}"
         base_str += "\nEnvironment Variables:"
-        for key, value in self.environment_variables.items():
+        for key, value in self._env_vars.items():
             base_str += f"\n    {key}: {value}"
         return base_str
 
@@ -117,14 +117,32 @@ class CStarEnvironment:
             ">"
         )
 
+    def _load_environment(self) -> None:
+        """Loads the environment variables from the user and system .env files,
+        populates the local copy of the variables, and publishes them to the system
+        environment."""
+        sys_vars = dotenv_values(self.system_env_path)
+        usr_vars = dotenv_values(CSTAR_USER_ENV_PATH)
+
+        # track all the platform- and user-specific environment variables
+        all_vars = {**sys_vars, **usr_vars}
+        self._env_vars = {k: v for k, v in all_vars.items() if v is not None}
+
+        # Use os.environ as "system of record" - only track changes in `_env_vars`
+        os.environ.update(self._env_vars)
+
     @property
-    def environment_variables(self) -> dict:
-        env_vars = dotenv_values(
-            self.package_root / f"additional_files/env_files/{self._system_name}.env"
-        )
-        user_env_vars = dotenv_values(CSTAR_USER_ENV_PATH)
-        env_vars.update(user_env_vars)
-        return env_vars
+    def environment_variables(self) -> dict[str, str]:
+        """Return the user and system environment variables that have been loaded.
+
+        Returns
+        -------
+        dict[str, str]
+            A dictionary containing the combined set of user and system
+            level environment variables.
+        """
+
+        return self._env_vars.copy()
 
     @property
     def package_root(self) -> Path:
@@ -164,6 +182,18 @@ class CStarEnvironment:
         """
 
         return (platform.system() == "Linux") and ("LMOD_CMD" in list(os.environ))
+
+    @property
+    def system_env_path(self) -> Path:
+        """Return the path to a .env file for the current system.
+
+        Returns
+        -------
+        Path
+            The path to the `.env` file.
+        """
+        pkg_relative_path = f"additional_files/env_files/{self._system_name}.env"
+        return self.package_root / pkg_relative_path
 
     def _call_lmod(self, *args) -> None:
         """Calls Linux Environment Modules with specified arguments in python mode.
@@ -255,4 +285,4 @@ class CStarEnvironment:
             The value to set for the environment variable.
         """
         set_key(CSTAR_USER_ENV_PATH, key, value)
-        load_dotenv(CSTAR_USER_ENV_PATH, override=True)
+        self._load_environment()
