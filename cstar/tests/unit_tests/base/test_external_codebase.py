@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from unittest import mock
 
@@ -113,20 +114,25 @@ def test_codebase_str(generic_codebase):
         )
 
 
-def test_codebase_repr(generic_codebase):
+@mock.patch.dict(os.environ, {})
+def test_codebase_repr(generic_codebase: ExternalCodeBase) -> None:
     """Test the repr representation of the `ExternalCodeBase` class."""
 
-    result_repr = repr(generic_codebase)
-    expected_repr = (
-        "MockExternalCodeBase("
-        + "\nsource_repo = 'https://github.com/test/repo.git',"
-        + "\ncheckout_target = 'test_target'"
-        + "\n)"
-        + "\nState: <local_config_status = 3>"
-    )
+    with mock.patch(
+        "cstar.system.environment.CStarEnvironment.environment_variables",
+        new_callable=mock.PropertyMock,
+        return_value={},
+    ):
+        result_repr = repr(generic_codebase)
+        expected_repr = (
+            "MockExternalCodeBase("
+            + "\nsource_repo = 'https://github.com/test/repo.git',"
+            + "\ncheckout_target = 'test_target'"
+            + "\n)"
+            + "\nState: <local_config_status = 3>"
+        )
 
-    assert result_repr == expected_repr
-    pass
+        assert result_repr == expected_repr
 
 
 class TestExternalCodeBaseConfig:
