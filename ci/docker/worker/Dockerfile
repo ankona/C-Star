@@ -1,3 +1,5 @@
+FROM ankona/cstar-runner:1
+
 FROM docker.io/continuumio/miniconda3:latest
 
 ARG CSTAR_REPO="https://github.com/ankona/C-Star"
@@ -29,6 +31,8 @@ RUN pip install --no-cache-dir ~/source/cstar && \
 WORKDIR "${HOME}/app"
 COPY run.sh ./run.sh
 
-CMD ["--log-level", "DEBUG", "--blueprint-uri", "/blueprints/blueprint.yml", "--output-dir", "/output/worker"]
-ENTRYPOINT ["bash", "./run.sh"]
+COPY hw.c hw.c
+# CMD ["--log-level", "DEBUG", "--blueprint-uri", "/blueprints/blueprint.yml", "--output-dir", "/output/worker"]
+# ENTRYPOINT ["bash", "./run.sh"]
+ENTRYPOINT ["echo", "$SLURM_JOB_ID"]
 

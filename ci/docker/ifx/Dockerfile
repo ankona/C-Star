@@ -93,7 +93,7 @@ RUN bash -c "source $SETVARS_SCRIPT && \
     --enable-fortran --enable-shared --with-pic"
 
 RUN bash -c "source /opt/intel/oneapi/setvars.sh && \
-    make -j$(nproc) && \
+    make -j $(nproc) && \
     make install"
 
 ENV PATH=$HDF5_HOME/bin:$PATH \
@@ -125,7 +125,7 @@ RUN bash -c "source $SETVARS_SCRIPT && \
         --enable-shared"
 
 RUN bash -c "source $SETVARS_SCRIPT && \
-    make -j$(nproc) && make install" && \
+    make -j $(nproc) && make install" && \
     rm -rf $INSTALL_BASE_DIR/netcdf-c-4.9.3
 
 ENV PATH=$NETCDF_HOME/bin:$PATH \
@@ -152,7 +152,7 @@ RUN bash -c "source $SETVARS_SCRIPT && \
         --enable-shared"
 
 RUN bash -c "source $SETVARS_SCRIPT && \
-    make -j$(nproc) && make install" && \
+    make -j $(nproc) && make install" && \
     rm -rf $INSTALL_BASE_DIR/netcdf-fortran-4.6.1
 
 ENV PATH=$NETCDF_FORTRAN_HOME/bin:$PATH \

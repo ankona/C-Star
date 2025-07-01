@@ -1,9 +1,14 @@
-FROM cstar-ifx-pb:1 AS compiler
+FROM ankona/cstar-ifx-pb:1 AS compiler
 
 ARG INSTALL_BASE_DIR=/opt
 ARG ROMS_ROOT=$INSTALL_BASE_DIR/ucla-roms 
 ARG ROMS_PATH=$ROMS_ROOT/Tools-Roms/
 ARG REPO_ROMS="https://github.com/dafyddstephenson/ucla-roms/archive/refs/heads/update_makefiles.tar.gz"
+
+# RUN apt-get update && apt-get install -y build-essential
+# RUN apt-get install -y openmpi-bin openmpi-doc libopenmpi-dev
+# RUN mv /opt/intel/oneapi/mpi/2021.14/bin/mpiexec /opt/intel/oneapi/mpi/2021.14/bin/mpiexec.bak
+# RUN mv /opt/intel/oneapi/mpi/2021.14/bin/mpicc /opt/intel/oneapi/mpi/2021.14/bin/mpicc.bak
 
 ENV PATH=$PATH:$ROMS_PATH
 WORKDIR $INSTALL_BASE_DIR
