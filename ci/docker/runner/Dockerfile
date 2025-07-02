@@ -1,0 +1,92 @@
+ARG SRC_DIR="/install"
+ARG INSTALL_BASE_DIR="/opt"
+
+ARG HDF5_INSTALL_DIR="hdf5-1.14.6-install"
+ARG HDF5_SRC=$SRC_DIR/hdf5-hdf5_1.14.6
+ARG HDF5_HOME=$INSTALL_BASE_DIR/$HDF5_INSTALL_DIR
+
+
+ARG NETCDF_FV="4.6.2"
+ARG NETCDF_FORTRAN_HOME=$INSTALL_BASE_DIR/netcdf-fortran-$NETCDF_FV-install
+ARG NETCDF_FORTRAN_SRC=$SRC_DIR/netcdf-fortran-$NETCDF_FV
+
+ARG NETCDF_V="4.9.3"
+ARG NETCDF_SRC=$SRC_DIR/netcdf-c-$NETCDF_V
+ARG NETCDF_HOME=$INSTALL_BASE_DIR/netcdf-$NETCDF_V-install
+
+ARG HOME="/root"
+ARG HDF5_ENV="${HOME}/hdf5.env"
+ARG NCDF_ENV="${HOME}/netcdf.env"
+ARG BASE_ENV="${HOME}/base.env"
+ARG OMPI_ENV="${HOME}/ompi.env"
+
+ARG OMPI_TGZ_OUT_DIR="openmpi-5.0.7"
+ARG MPI_HOME="$INSTALL_BASE_DIR/$OMPI_TGZ_OUT_DIR"
+
+# Must first prep & install netcdf to build hdf
+FROM ankona/cstar-hdf5:1 as stage_hdf
+ARG HDF5_SRC
+ARG HDF5_HOME
+ARG HDF5_INSTALL_DIR
+ARG HOME
+ARG HDF5_ENV
+
+# COPY --from=stage_hdf $HDF5_SRC $HDF5_SRC
+
+# perform installation
+WORKDIR $HDF5_SRC
+RUN . $HDF5_ENV && make -j $(nproc) && make install
+
+
+FROM ankona/cstar-netcdf:1 as stage_netcdf
+ARG SRC_DIR
+ARG INSTALL_BASE_DIR
+ARG HOME
+ARG HDF5_HOME
+ARG HDF5_ENV
+ARG NCDF_ENV
+
+ARG NETCDF_HOME
+ARG NETCDF_FORTRAN_HOME
+ARG NETCDF_SRC
+ARG NETCDF_FORTRAN_SRC
+
+ENV NETCDF_SRC=$NETCDF_SRC
+ENV NETCDF_FORTRAN_SRC=$NETCDF_FORTRAN_SRC
+
+COPY --from=stage_hdf $HDF5_ENV $HDF5_ENV
+COPY --from=stage_hdf $HDF5_HOME $HDF5_HOME
+
+WORKDIR $NETCDF_SRC
+RUN . $HDF5_ENV && . $NCDF_ENV && make -j $(nproc) && make install
+
+WORKDIR $NETCDF_FORTRAN_SRC
+RUN . $HDF5_ENV && . $NCDF_ENV && make -j $(nproc) && make install
+
+FROM ankona/cstar-mpi:1 as stage_mpi
+
+
+FROM ankona/cstar-buildbase:1 as stage_out
+ARG HOME
+ARG HDF5_HOME
+ARG NETCDF_HOME
+ARG NETCDF_FORTRAN_HOME
+ARG HDF5_ENV
+ARG NCDF_ENV
+ARG OMPI_ENV
+ARG BASE_ENV
+ARG MPI_HOME
+
+COPY --from=stage_hdf $HDF5_ENV $HDF5_ENV
+COPY --from=stage_hdf $HDF5_HOME $HDF5_HOME
+
+COPY --from=stage_netcdf $NCDF_ENV $NCDF_ENV
+COPY --from=stage_netcdf $NETCDF_HOME $NETCDF_HOME
+COPY --from=stage_netcdf $NETCDF_FORTRAN_HOME $NETCDF_FORTRAN_HOME
+
+COPY --from=stage_mpi $OMPI_ENV $OMPI_ENV
+COPY --from=stage_mpi $MPI_HOME $MPI_HOME
+
+RUN cat $HDF5_ENV >> $BASE_ENV && \
+    cat $NCDF_ENV >> $BASE_ENV && \
+    cat $OMPI_ENV >> $BASE_ENV

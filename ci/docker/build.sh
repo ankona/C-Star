@@ -1,0 +1,88 @@
+#!/bin/bash
+# Parameters:
+# $1: context path (required)
+# $2: image name (required)
+# $3: account (optional)
+# $4: tag version (optional)
+# $5: image repository uri (optional)
+SCRIPT="$0"
+CONTEXT_PATH="$1"
+IMAGE_NAME="$2"
+ACCOUNT="$3"
+TAG_VERSION="$4"
+REPO="$5"
+
+ACCOUNT_DEFAULT=ankona
+VERSION_DEFAULT=1
+REPO_DEFAULT="docker.io"
+LOG_FORMAT="[%s] %s %s\n"
+
+log_info() {
+    printf "$LOG_FORMAT" "INFO" "$SCRIPT" "$1"
+}
+
+log_error() {
+    printf "$LOG_FORMAT" "ERROR" "$SCRIPT" "$1" >&2
+}
+
+show_usage() {
+    printf "Usage: %s <image_name> <context-path> [<account>] [<version>] [<repo-uri>]\n" $SCRIPT
+    printf " - default account: %s\n" $ACCOUNT_DEFAULT
+    printf " - default version: %s\n" $VERSION_DEFAULT
+    printf " - default repo: %s\n" $REPO_DEFAULT
+}
+
+# Ensure required parameters are present
+if [ $# -lt 2 ]; then
+    show_usage
+    exit 1
+fi
+
+if [ ! -e "$CONTEXT_PATH" ]; then
+    log_error "Directory was not found at the supplied context path: $CONTEXT_PATH"
+    show_usage
+    exit 1
+fi
+
+if [ -z "$ACCOUNT" ]; then
+    ACCOUNT=$ACCOUNT_DEFAULT
+    log_info "Using default account: $ACCOUNT" 
+fi
+
+if [ -z "$TAG_VERSION" ]; then
+    TAG_VERSION=$VERSION_DEFAULT
+    log_info "Using default tag version: $TAG_VERSION" 
+fi
+
+if [ -z "$REPO" ]; then
+    REPO=$REPO_DEFAULT
+    log_info "Using default repo: $REPO" 
+fi
+
+VERSIONED_NAME="cstar-$IMAGE_NAME:$TAG_VERSION"
+TAG="$ACCOUNT/$VERSIONED_NAME"
+CONTEXT_CONTENT=$(ls -l $CONTEXT_PATH)
+
+if [[ "$CONTEXT_CONTENT" != *Dockerfile* ]]; then
+    log_error "Dockerfile not found in $CONTEXT_PATH"
+    exit 1
+fi
+
+log_info "Pulling $REPO/$TAG"
+podman-hpc pull "$REPO/$TAG"
+
+log_info "Building $VERSIONED_NAME in $CONTEXT_PATH from source \n $CONTEXT_DIR"
+podman-hpc build -t "$VERSIONED_NAME" "$CONTEXT_PATH"
+
+log_info "Tagging $VERSIONED_NAME in $CONTEXT_PATH as [$TAG]"
+podman-hpc tag "$VERSIONED_NAME" "$TAG"
+
+log_info "Migrating $VERSIONED_NAME"
+podman-hpc migrate "$VERSIONED_NAME"
+
+log_info "Migrating $TAG"
+podman-hpc migrate "$TAG"
+
+log_info "Publishing $REPO/$TAG"
+# podman-hpc push "$REPO/$TAG"
+podman-hpc push "$TAG"
