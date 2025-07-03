@@ -32,7 +32,7 @@ RUN cat $BASE_ENV >> $ROOT_ENV && \
     echo 'export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1' >> $ROOT_ENV
 
 RUN . $ROOT_ENV && \
-    wget $REPO_ROMS && \
+    wget -q $REPO_ROMS && \
     tar xvf update_makefiles.tar.gz && \
     mv ucla-roms-update_makefiles $ROMS_ROOT && \
     rm update_makefiles.tar.gz

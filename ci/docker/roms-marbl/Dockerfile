@@ -11,7 +11,7 @@ ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
 # (Makefile doesn't define ifx option but setting I_MPI_F90 to ifx above should fix this)
 WORKDIR $INSTALL_BASE_DIR
 RUN source /opt/intel/oneapi/setvars.sh && \
-    wget $REPO_MARBL && \
+    wget -q $REPO_MARBL && \
     tar xvf marbl0.45.0.tar.gz && \
     mv MARBL-marbl0.45.0 $MARBL_ROOT && \
     cd $MARBL_ROOT/src && \

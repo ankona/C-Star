@@ -1,38 +1,33 @@
-FROM ankona/cstar-buildbase:1
+ARG MAIN_STAGE="main"  # pass `add_test` to build the test program /runtest
+
+FROM ankona/cstar-buildbase:1 as main
 
 ARG MPICH_URI="https://www.mpich.org/static/downloads/4.2.2/mpich-4.2.2.tar.gz"
 ARG MPI_TGZ_NAME="mpich-4.2.2.tar.gz" 
 ARG MPI_TGZ_OUT_DIR="mpich-4.2.2"
 
-ARG HOME="/root"
 ARG SRC_DIR="/install"
 ARG INSTALL_BASE_DIR="/opt"
 ENV MPIHOME="$INSTALL_BASE_DIR/$MPI_TGZ_OUT_DIR"
+ARG MPICH_PROFILE="/etc/profile.d/50-mpich-4.2.2.sh"
 
-ARG OMPI_ENV="$HOME/ompi.env"
 
-
-# for install from source, see:
-# https://webpages.charlotte.edu/abw/coit-grid01.uncc.edu/ParallelProgSoftware/Software/OpenMPIInstall.pdf
-RUN apt-get update && apt-get install -y build-essential
 RUN mkdir -p $SRC_DIR
 
-# TODO: get rid of OMPI in the base image? ompi_info still works here and it should not?
-
-WORKDIR $SRC_DIR
-RUN wget $MPICH_URI && \
-    tar xvf $MPI_TGZ_NAME && \
-    cd $MPI_TGZ_OUT_DIR && \
+WORKDIR "$SRC_DIR"
+RUN wget -q "$MPICH_URI" && \
+    tar xvf "$MPI_TGZ_NAME" && \
+    cd "$MPI_TGZ_OUT_DIR" && \
     ./configure \
-        --prefix=$MPIHOME CC=gcc CXX=g++ FC=gfortran \
+        --prefix="$MPIHOME" CC=gcc CXX=g++ FC=gfortran \
         --with-pmi=pmi2 && \
     #  --enable-shared 
     #  --with-pic \
         # --with-slurm \
         # --with-pmix=internal && \
-    make -j $(nproc) && make install && cd $SRC_DIR && \
-    rm $MPI_TGZ_NAME && \
-    rm -rf $MPI_TGZ_OUT_DIR
+    make -j $(nproc) && make install && cd "$SRC_DIR" && \
+    rm "$MPI_TGZ_NAME" && \
+    rm -rf "$MPI_TGZ_OUT_DIR"
 
 
 ENV PATH=$MPIHOME/bin:$PATH
@@ -41,42 +36,41 @@ ENV CPATH=$MPIHOME/include:$CPATH
 ENV LIBRARY_PATH=$MPIHOME/lib:$LIBRARY_PATH
 ENV LD_RUN_PATH=$MPIHOME/lib:$LD_RUN_PATH
 
-RUN mkdir -p "${HOME}" && touch $OMPI_ENV && \
-    echo "export MPIHOME=$MPIHOME" >> $OMPI_ENV && \
-    echo 'export PATH=$MPIHOME/bin:$PATH' >> $OMPI_ENV && \
-    echo 'export LD_LIBRARY_PATH=$MPIHOME/lib:$LD_LIBRARY_PATH' >> $OMPI_ENV && \
-    echo 'export CPATH=$MPIHOME/include:$CPATH' >> $OMPI_ENV && \
-    echo 'export LIBRARY_PATH=$MPIHOME/lib:$LIBRARY_PATH' >> $OMPI_ENV && \
-    echo 'export LD_RUN_PATH=$MPIHOME/lib:$LD_RUN_PATH' >> $OMPI_ENV && \
-    cat $OMPI_ENV >> $HOME/.profile && cat $OMPI_ENV >> $HOME/.bashrc
+RUN mkdir -p "/etc/profile.d" && \
+    echo "export MPIHOME=$MPIHOME" >> $MPICH_PROFILE && \
+    echo 'export PATH=$MPIHOME/bin:$PATH' >> $MPICH_PROFILE && \
+    echo 'export LD_LIBRARY_PATH=$MPIHOME/lib:$LD_LIBRARY_PATH' >> $MPICH_PROFILE && \
+    echo 'export CPATH=$MPIHOME/include:$CPATH' >> $MPICH_PROFILE && \
+    echo 'export LIBRARY_PATH=$MPIHOME/lib:$LIBRARY_PATH' >> $MPICH_PROFILE && \
+    echo 'export LD_RUN_PATH=$MPIHOME/lib:$LD_RUN_PATH' >> $MPICH_PROFILE
 
-RUN /sbin/ldconfig
 
-WORKDIR $SRC_DIR
-ARG RING_URI="https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/3e0a3b7cac0536a0726a5fb36aceb5db1dba8506/ring.c"
-ADD $RING_URI $INSTALL_BASE_DIR/ring.c
-RUN mpicc $INSTALL_BASE_DIR/ring.c -o $INSTALL_BASE_DIR/ring && chmod 777 $INSTALL_BASE_DIR/ring
+FROM main as add_test
 
-# ARG $PMIX_V="6.0.0"
-# ENV PMIX_ROOT=$INSTALL_BASE_DIR/pmix-6.0.0
+ARG TEST_ENV="/etc/profile.d/99-ring.sh"
+ENV RING_URI="https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/3e0a3b7cac0536a0726a5fb36aceb5db1dba8506/ring.c"
 
-# # RUN apt-get update && apt-get install python3 python3-devel Cython
+ENV MPI_TEST_HARNESS="/test/ring"
+ENV PATH="/test:$PATH"
+RUN mkdir -p "/test" && \
+    wget -q "$RING_URI" -O "/test/ring.c" && \
+    mpicc "/test/ring.c" -o $MPI_TEST_HARNESS && \
+    rm "/test/ring.c" && \
+    echo "#!/bin/bash" >> "$TEST_ENV" && \
+    echo "export MPI_TEST_HARNESS=$MPI_TEST_HARNESS" >> "$TEST_ENV" && \
+    printf '#!/bin/bash\nmpirun -n 2 --allow-run-as-root %s\n' "$MPI_TEST_HARNESS" >> "/test/runtest" && \
+    chmod +x "$TEST_ENV" && \
+    chmod +x "/test/runtest" && \
+    apt-get update && \
+    apt-get install -y neovim && \
+    rm -rf /var/lib/apt/lists/* && \
+    ldconfig
 
-# WORKDIR $SRC_DIR
-# RUN wget "https://github.com/openpmix/openpmix/releases/download/v6.0.0/pmix-6.0.0.tar.gz" && \
-#     tar xf "pmix-6.0.0.tar.gz" && \
-#     cd pmix-6.0.0 && \
-#     ./configure --prefix=/opt/pmix-6.0.0 && \
-#     make -j $(nproc) all && \
-#     make install
 
-# ENV LD_LIBRARY_PATH=$PMIX_ROOT/lib:$LD_LIBRARY_PATH
-# ENV PATH=$PMIX_ROOT/bin:$PATH
+FROM $MAIN_STAGE as final
 
-# RUN echo "export PMIX_ROOT=$PMIX_ROOT" >> $OMPI_ENV && \
-#     echo 'export LD_LIBRARY_PATH=$PMIX_ROOT/lib:$LD_LIBRARY_PATH' >> $OMPI_ENV && \
-#     echo 'export PATH=$PMIX_ROOT/bin:$PATH' >> $OMPI_ENV && \
-#     cat $OMPI_ENV >> $HOME/.profile && cat $OMPI_ENV >> $HOME/.bashrc
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# CMD ["mpirun", "--allow-run-as-root", "./foo"]
-# ENTRYPOINT ["mpirun", "--allow-run-as-root"]
+CMD []
+ENTRYPOINT ["/entrypoint.sh"]

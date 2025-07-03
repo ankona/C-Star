@@ -10,7 +10,7 @@ RUN mkdir -p $CONDA_HOME
 ENV PATH="${CONDA_HOME}/bin:${PATH}"
 
 WORKDIR $CONDA_HOME
-RUN wget $MINICONDA_SCRIPT -O /tmp/miniconda.sh && \
+RUN wget -q $MINICONDA_SCRIPT -O /tmp/miniconda.sh && \
     bash /tmp/miniconda.sh -b -u -p $CONDA_HOME && \
     $CONDA_HOME/bin/conda init --all && \
     rm /tmp/miniconda.sh

@@ -19,7 +19,7 @@ ENV PATH=$PATH:$ROMS_PATH
 
 WORKDIR $INSTALL_BASE_DIR
 RUN bash -c "source /opt/intel/oneapi/setvars.sh && \
-    wget $REPO_ROMS && \
+    wget -q $REPO_ROMS && \
     tar xvf update_makefiles.tar.gz && \
     mv ucla-roms-update_makefiles $ROMS_ROOT && \
     cd $ROMS_ROOT/Work && \
@@ -43,7 +43,7 @@ COPY --from=stage_roms $ROMS_ROOT $ROMS_ROOT
 # (Makefile doesn't define ifx option but setting I_MPI_F90 to ifx above should fix this)
 WORKDIR $INSTALL_BASE_DIR
 RUN bash -c "source /opt/intel/oneapi/setvars.sh && \
-    wget $REPO_MARBL && \
+    wget -q $REPO_MARBL && \
     tar xvf marbl0.45.0.tar.gz && \
     mv MARBL-marbl0.45.0 $MARBL_ROOT && \
     cd $MARBL_ROOT/src && \

@@ -1,7 +1,8 @@
 CI_DIR		:= $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-ACCOUNT		:= "ankona"
-VERSION		:= "1"
-REPO_URI	:= "docker.io"
+ACCOUNT		:= ankona
+VERSION		:= 1
+REPO_URI	:= docker.io
+TEST_BUILD	:= "MAIN_STAGE=add_test"
 
 
 IMG_BUILDBASE := "buildbase"
@@ -14,15 +15,31 @@ IMG_MPI := "mpi"
 mpi: buildbase
 	$(CI_DIR)build.sh "$(CI_DIR)$(IMG_MPI)" $(IMG_MPI) $(ACCOUNT) $(VERSION) $(REPO_URI)
 
+# testmpi - create an OMPI 4.1.x image that includes the test harness
+.PHONY: testmpi
+testmpi:
+	$(CI_DIR)build.sh "$(CI_DIR)$(IMG_MPI)" $(IMG_MPI)-test $(ACCOUNT) $(VERSION) $(REPO_URI) $(TEST_BUILD)
+
+
 IMG_MPI507 := "mpi-5.0.7"
 .PHONY: mpi5
 mpi5: buildbase
 	$(CI_DIR)build.sh "$(CI_DIR)$(IMG_MPI507)" $(IMG_MPI507) $(ACCOUNT) $(VERSION) $(REPO_URI)
 
+# testmpi5 - create an OMPI 5.0.7 image that includes the test harness
+.PHONY: testmpi5
+testmpi5:
+	$(CI_DIR)build.sh "$(CI_DIR)$(IMG_MPI507)" $(IMG_MPI507)-test $(ACCOUNT) $(VERSION) $(REPO_URI) $(TEST_BUILD)
+
 IMG_MPICH422 := "mpich-4.2.2"
 .PHONY: mpich
 mpich: buildbase
 	$(CI_DIR)build.sh "$(CI_DIR)$(IMG_MPICH422)" $(IMG_MPICH422) $(ACCOUNT) $(VERSION) $(REPO_URI)
+
+# testmpich - create an MPICH 4.2.2 image that includes the test harness
+.PHONY: testmpich
+testmpich:
+	$(CI_DIR)build.sh "$(CI_DIR)$(IMG_MPICH422)" $(IMG_MPICH422)-test $(ACCOUNT) $(VERSION) $(REPO_URI) $(TEST_BUILD)
 
 IMG_HDF5 := "hdf5"
 .PHONY: hdf5
@@ -59,6 +76,14 @@ IMG_WORKER := "worker"
 worker: runner
 	$(CI_DIR)build.sh "$(CI_DIR)$(IMG_WORKER)" $(IMG_WORKER) $(ACCOUNT) $(VERSION) $(REPO_URI)
 
+.PHONY: irun
+irun:
+	podman-hpc run --rm -i -t $(ACCOUNT)/cstar-$(img):$(VERSION) bash
+
+.PHONY: clean
+clean:
+	podman-hpc image rm cstar-$(img):$(VERSION)
+	podman-hpc image rm $(ACCOUNT)/cstar-$(img):$(VERSION)
 
 .PHONY: allmpi
 allmpi: mpi mpich mpi5

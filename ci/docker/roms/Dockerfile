@@ -11,14 +11,15 @@ ARG REPO_ROMS="https://github.com/dafyddstephenson/ucla-roms/archive/refs/heads/
 # RUN mv /opt/intel/oneapi/mpi/2021.14/bin/mpicc /opt/intel/oneapi/mpi/2021.14/bin/mpicc.bak
 
 ENV PATH=$PATH:$ROMS_PATH
+ENV COMPILER="intel"
 WORKDIR $INSTALL_BASE_DIR
 
 # Install and configure ROMS
-RUN bash -c "source /opt/intel/oneapi/setvars.sh && \
-    wget $REPO_ROMS && \
+RUN source /opt/intel/oneapi/setvars.sh && \
+    wget -q "$REPO_ROMS" && \
     tar xvf update_makefiles.tar.gz && \
-    mv ucla-roms-update_makefiles $ROMS_ROOT && \
-    cd $ROMS_ROOT/Work && \
-    make nhmg COMPILER=intel && \
-    cd $ROMS_PATH && \
-    make COMPILER=intel"
+    mv ucla-roms-update_makefiles "$ROMS_ROOT" && \
+    cd "$ROMS_ROOT/Work" && \
+    make nhmg COMPILER=$COMPILER && \
+    cd "$ROMS_PATH" && \
+    make COMPILER=$COMPILER

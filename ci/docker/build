@@ -5,6 +5,7 @@
 # $3: account (optional)
 # $4: tag version (optional)
 # $5: image repository uri (optional)
+# $6: a build argument (optional)
 SCRIPT="$0"
 CONTEXT_PATH="$1"
 IMAGE_NAME="$2"
