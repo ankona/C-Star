@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import TypeVar
 from unittest.mock import MagicMock, patch
 
-import numpy as np
 import pytest
 from pydantic import ValidationError
 
@@ -70,7 +69,7 @@ def example_runtime_settings():
             0.0,
         ]
         * 38,
-        vertical_mixing={"Akv_bak": 0, "Akt_bak": np.zeros(37)},
+        vertical_mixing={"Akv_bak": 0, "Akt_bak": [0] * 37},
         my_bak_mixing={"Akq_bak": 1.0e-5, "q2nu2": 0.0, "q2nu4": 0.0},
         sss_correction=7.777,
         sst_correction=10.0,
