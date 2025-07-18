@@ -24,21 +24,60 @@ classifiers = [
 requires-python = ">=3.10"
 dynamic = ["version"]
 dependencies = [
+    # "numpy>=2.2.6",
+    "pooch>=1.8.1",
     "python-dateutil>=2.8.2",
-    "python-dotenv",
+    "python-dotenv>=1.1.0",
     "PyYAML==6.0.2",
     "pydantic>=2.11",
-    "pooch>=1.8.1",
-    "roms_tools[dask]==2.6.2"
+    "roms_tools==2.6.2",
+    # "xarray>=2025.7.1",
 ]
 keywords = ["MCDR", "CDR", "ocean carbon", "climate"]
 
 [project.optional-dependencies]
-test = [
-     "pytest>=7.0",
-     "roms_tools[dask]==2.6.2"
-     ]
-dev =[]
+dev = [
+    "coverage>=7.9.2",
+    "ipykernel>=6.29.5",
+    "pre-commit==3.8.0",
+    "pytest>=7.0",
+    "pytest-asyncio",
+    "roms_tools[dask]==2.6.2",
+]
+docs = [
+    "myst-parser>=4.0",
+    "nbsphinx>=0.9.7",
+    "readthedocs-sphinx-ext>=2.2.5",
+    "sphinx>8.1",
+    "sphinx-book-theme>=1.1.4",
+    "sphinxcontrib-bibtex>=2.6.5",
+]
+all = [
+    # defaults
+    # "numpy>=2.2.6",
+    "pooch>=1.8.1",
+    "python-dateutil>=2.8.2",
+    "python-dotenv>=1.1.0",
+    "PyYAML==6.0.2",
+    "pydantic>=2.11",
+    "roms_tools==2.6.2",
+    # "xarray>=2025.7.1",
+
+    # dev
+    "coverage>=7.9.2",
+    "ipykernel>=6.29.5",
+    "pre-commit==3.8.0",
+    "pytest>=7.0",
+    "roms_tools[dask]==2.6.2",
+
+    # docs
+    "myst-parser>=4.0",
+    "nbsphinx>=0.9.7",
+    "readthedocs-sphinx-ext>=2.2.5",
+    "sphinx>8.1",
+    "sphinx-book-theme>=1.1.4",
+    "sphinxcontrib-bibtex>=2.6.5",
+]
 
 [build-system]
 requires = [
