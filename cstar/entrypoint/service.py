@@ -250,7 +250,52 @@ class Service(ABC, LoggingMixin):
         """
         self.log.debug("Terminating healthcheck")
         self._send_update_to_hc({self.CMD_PREFIX: self.CMD_QUIT, "reason": reason})
-        self._send_update_to_hc({"cmd": "quit", "reason": reason})
+
+    class LatencyTracker:
+        """Calculates health check logging statistics."""
+
+        def __init__(self, config: ServiceConfiguration) -> None:
+            """Initialize a tracker with zero elapsed time."""
+            # self._hc_elapsed: float = 0
+            # """Amount of time elapsed since tracker began tracking."""
+            self._start_time: float = time.time()
+            """The beginning of the latest latency period."""
+            self._og_start_time: float = self._start_time
+            """The beginning of all latency periods monitored by the tracker."""
+            self._config = config.model_copy()
+            """The service configuration declaring latency ranges."""
+
+        @property
+        def elapsed(self) -> float:
+            """Calculate the time elapsed since the tracker was last marked."""
+            return time.time() - self._start_time
+
+        @property
+        def total_elapsed(self) -> float:
+            """Calculate the time elapsed since the tracker was created."""
+            return time.time() - self._og_start_time
+
+        @property
+        def remaining(self) -> float:
+            """Calculate the amount of time remaining before a latency warning."""
+            return max(self.elapsed, 0)
+
+        def mark(self) -> None:
+            """Inform the tracker that it should use a new latency period."""
+            self._start_time = time.time()
+
+        def reset(self) -> None:
+            """Reset the internal state of the tracker."""
+            self._start_time = time.time()
+            self._og_start_time = time.time()
+
+        @property
+        def is_reportable(self) -> bool:
+            """Return `True` if the tracked latency exceeds the configured maximum."""
+            if self._config.health_check_frequency is None:
+                return False
+
+            return self._config.max_health_check_latency > self.elapsed
 
     def _healthcheck(
         self,
@@ -280,26 +325,22 @@ class Service(ABC, LoggingMixin):
             self.log.debug("Health check disabled.")
             return
 
-        last_health_check = time.time()  # timestamp of last health check
         running = True
-        hc_elapsed = 0.0
+        tracker = self.LatencyTracker(self._config)
 
         while running:
             try:
-                hc_elapsed = time.time() - last_health_check
-                hcf_remaining = config.health_check_frequency - hc_elapsed
-                remaining_wait = max(hcf_remaining, 0)
-
                 # report large gaps between updates.
-                if hc_elapsed > config.max_health_check_latency:
+                if tracker.is_reportable:
                     self.log.warning(
-                        f"No health update in last {hc_elapsed:.2f} seconds."
+                        f"No health update in last {tracker.total_elapsed:.2f} seconds. maxlat: {self._config.max_health_check_latency}"
                     )
+                    tracker.mark()
 
                 if msg := msg_queue.get_nowait():
-                    if hc_elapsed >= config.health_check_frequency:
+                    if tracker.total_elapsed >= config.health_check_frequency:
                         self._on_health_check()
-                        last_health_check = time.time()
+                        tracker.reset()
 
                     command = msg.get(self.CMD_PREFIX, None)
                     if not command:
@@ -309,7 +350,7 @@ class Service(ABC, LoggingMixin):
                     elif command == self.CMD_QUIT:
                         running = False
                 else:
-                    time.sleep(remaining_wait)
+                    time.sleep(tracker.remaining)
 
             except Empty:  # noqa: PERF203
                 ...  # ignore empty queue; just wait for shutdown msg
