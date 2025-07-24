@@ -3,24 +3,8 @@ channels:
   - conda-forge
 dependencies:
   - python>=3.10
-  - numpy
-  - xarray
-  - roms-tools
-  - netCDF4
-  - pip
-  - pydantic>=2.11
-  # testing
-  - pre-commit==3.8.0
-  - coverage
-  - pytest
-  - pytest-asyncio
-  # docs
-  - sphinx
-  - nbsphinx
-  - sphinx-book-theme
-  - sphinxcontrib-bibtex
-  - myst-parser
-  - pip:
-    - readthedocs-sphinx-ext
-  # for running jupyter notebooks
-  - ipykernel
+  - compilers>=1.10.0
+  - mpich>=4.3.1
+  - netCDF4>=1.7.2
+  - netcdf-fortran>=4.6.2
+  - cstar  # [all]

@@ -4,8 +4,7 @@ channels:
 dependencies:
   - python>=3.10
   - compilers>=1.10.0
-  # - numpy==2.2.6  # pin to version in roms-tools (need to loosen that req)
   - mpich>=4.3.1
   - netCDF4>=1.7.2
   - netcdf-fortran>=4.6.2
-  - xarray>=2025.7.1
+  - cstar  # [all]
