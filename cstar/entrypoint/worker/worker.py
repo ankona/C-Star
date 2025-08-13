@@ -96,6 +96,10 @@ class SimulationRunner(Service):
             start_date=request.start_date,
             end_date=request.end_date,
         )
+
+        roms_root = os.environ.get("ROMS_ROOT", None)
+        self._simulation.exe_path = pathlib.Path(roms_root) if roms_root else None
+
         """The simulation instance created from the blueprint."""
         self._handler: ExecutionHandler | None = None
         """The execution handler for the simulation."""
@@ -131,11 +135,11 @@ class SimulationRunner(Service):
             If the output directory exists and contains
         """
         # a leftover root_dir may have files in it, breaking download; warn.
-        if (
-            self._output_root.exists()
-            and next(self._output_root.glob("*"), None) is not None
-        ):
-            raise ValueError(f"Output directory {self._output_root} is not empty.")
+        outputs = [p for p in self._output_root.glob("*") if "logs" not in str(p)]
+
+        if self._output_root.exists() and outputs:
+            msg = f"Output directory {self._output_root} is not empty."
+            raise ValueError(msg)
 
         # leftover external code folder causes non-empty repo errors; remove.
         externals_path = cstar_sysmgr.environment.package_root / "externals"
