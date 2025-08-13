@@ -97,6 +97,10 @@ class SimulationRunner(Service):
             start_date=request.start_date,
             end_date=request.end_date,
         )
+
+        roms_root = os.environ.get("ROMS_ROOT", None)
+        self._simulation.exe_path = pathlib.Path(roms_root) if roms_root else None
+
         """The simulation instance created from the blueprint."""
         self._handler: ExecutionHandler | None = None
         """The execution handler for the simulation."""
