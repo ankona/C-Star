@@ -1,51 +1,67 @@
-from abc import ABC
+import textwrap
 
 
-class Discretization(ABC):
-    """Holds discretization information about a Component.
+class Discretization:
+    """Holds discretization information about a Component."""
 
-    Attributes:
-    -----------
     time_step: int
-        The time step with which to run the Component
-    """
+    """The time step with which to run the Component"""
+    n_procs_x: int
+    """The number of parallel processors over which to subdivide the x axis of the domain."""
+    n_procs_y: int
+    """The number of parallel processors over which to subdivide the y axis of the domain."""
 
     def __init__(
         self,
         time_step: int,
-    ):
+        n_procs_x: int = 1,
+        n_procs_y: int = 1,
+    ) -> None:
         """Initialize a Discretization object from basic discretization parameters.
 
         Parameters:
         -----------
         time_step: int
             The time step with which to run the Component
+        n_procs_x: int
+           The number of parallel processors over which to subdivide the x axis of the domain.
+        n_procs_y: int
+           The number of parallel processors over which to subdivide the y axis of the domain.
 
         Returns:
         --------
         Discretization:
             An initialized Discretization object
         """
-        self.time_step: int = time_step
+        self.time_step = time_step
+        self.n_procs_x = n_procs_x
+        self.n_procs_y = n_procs_y
+
+    @property
+    def n_procs_tot(self) -> int:
+        """Total number of processors required by this ROMS configuration."""
+        return self.n_procs_x * self.n_procs_y
 
     def __str__(self) -> str:
-        # Discretisation
-        disc_str = ""
+        cls_name = self.__class__.__name__
 
-        if hasattr(self, "time_step") and self.time_step is not None:
-            disc_str += "\ntime_step: " + str(self.time_step) + "s"
-        if len(disc_str) > 0:
-            classname = self.__class__.__name__
-            header = classname
-            disc_str = header + "\n" + "-" * len(classname) + disc_str
-
-        return disc_str
+        return textwrap.dedent(
+            f"""\
+            {cls_name}
+            {"-" * len(cls_name)}
+            time_step: {self.time_step}s
+            n_procs_x: {self.n_procs_x} (Number of x-direction processors)
+            n_procs_y: {self.n_procs_y} (Number of y-direction processors)
+            """,
+        )
 
     def __repr__(self) -> str:
-        repr_str = ""
-        repr_str = f"{self.__class__.__name__}("
-        if hasattr(self, "time_step") and self.time_step is not None:
-            repr_str += f"time_step = {self.time_step}, "
-        repr_str = repr_str.strip(", ")
-        repr_str += ")"
-        return repr_str
+        cls_name = self.__class__.__name__
+        st = f"{self.time_step=}"
+        sx = f"{self.n_procs_x=}" if self.n_procs_x != 1 else ""
+        sy = f"{self.n_procs_y=}" if self.n_procs_y != 1 else ""
+
+        # exclude default values from output
+        params_s = ", ".join(filter(lambda x: x, (st, sx, sy)))
+
+        return f"{cls_name}({params_s})".replace("self.", "")

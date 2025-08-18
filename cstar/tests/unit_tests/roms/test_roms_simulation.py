@@ -10,11 +10,11 @@ import pytest
 import yaml
 
 from cstar.base.additional_code import AdditionalCode
+from cstar.base.discretization import Discretization
 from cstar.base.external_codebase import ExternalCodeBase
 from cstar.execution.handler import ExecutionStatus
 from cstar.marbl.external_codebase import MARBLExternalCodeBase
 from cstar.roms import ROMSRuntimeSettings
-from cstar.roms.discretization import ROMSDiscretization
 from cstar.roms.external_codebase import ROMSExternalCodeBase
 from cstar.roms.input_dataset import (
     ROMSBoundaryForcing,
@@ -189,7 +189,7 @@ class TestROMSSimulationInitialization:
             ROMSSimulation(
                 name="test",
                 directory=tmp_path,
-                discretization=ROMSDiscretization(time_step=60),
+                discretization=Discretization(time_step=60),
                 runtime_code=None,
                 compile_time_code=AdditionalCode(location="some/dir"),
                 start_date="2012-01-01",
@@ -221,7 +221,7 @@ class TestROMSSimulationInitialization:
             ROMSSimulation(
                 name="test",
                 directory=tmp_path,
-                discretization=ROMSDiscretization(time_step=60),
+                discretization=Discretization(time_step=60),
                 runtime_code=AdditionalCode(location="some/dir"),
                 compile_time_code=None,
                 start_date="2012-01-01",
@@ -257,7 +257,7 @@ class TestROMSSimulationInitialization:
         sim = ROMSSimulation(
             name="test",
             directory=tmp_path,
-            discretization=ROMSDiscretization(time_step=60),
+            discretization=Discretization(time_step=60),
             runtime_code=AdditionalCode(
                 location="some/dir",
                 files=[
@@ -344,7 +344,7 @@ class TestROMSSimulationInitialization:
             ROMSSimulation(
                 name="test",
                 directory=tmp_path,
-                discretization=ROMSDiscretization(time_step=60),
+                discretization=Discretization(time_step=60),
                 codebase=ROMSExternalCodeBase(),
                 runtime_code=AdditionalCode(location="some/dir"),
                 compile_time_code=AdditionalCode(location="some/dir"),
@@ -355,7 +355,7 @@ class TestROMSSimulationInitialization:
                 **test_args,
             )
 
-            assert expected_msg in str(exception_info.value)
+        assert expected_msg in str(exception_info.value)
 
     def test_codebases(self, example_roms_simulation):
         """Test that the `codebases` property correctly lists the `ExternalCodeBase`
@@ -651,7 +651,7 @@ class TestROMSSimulationInitialization:
                 directory=tmp_path,
                 runtime_code=[],
                 compile_time_code=[],
-                discretization=ROMSDiscretization(time_step=1),
+                discretization=Discretization(time_step=1),
                 start_date=start_date,
                 end_date=end_date,
                 valid_start_date=valid_start_date,
@@ -815,7 +815,7 @@ End date: 2025-12-31 00:00:00
 Valid start date: 2024-01-01 00:00:00
 Valid end date: 2026-01-01 00:00:00
 
-Discretization: ROMSDiscretization(time_step = 60, n_procs_x = 2, n_procs_y = 3)
+Discretization: Discretization(time_step=60, n_procs_x=2, n_procs_y=3)
 
 Code:
 Codebase: ROMSExternalCodeBase instance (query using ROMSSimulation.codebase)
@@ -866,7 +866,7 @@ start_date = 2025-01-01 00:00:00,
 end_date = 2025-12-31 00:00:00,
 valid_start_date = 2024-01-01 00:00:00,
 valid_end_date = 2026-01-01 00:00:00,
-discretization = ROMSDiscretization(time_step = 60, n_procs_x = 2, n_procs_y = 3),
+discretization = Discretization(time_step=60, n_procs_x=2, n_procs_y=3),
 codebase = <ROMSExternalCodeBase instance>,
 runtime_code = <AdditionalCode instance>,
 compile_time_code = <AdditionalCode instance>
@@ -1949,7 +1949,7 @@ class TestProcessingAndExecution:
         Mocks & Fixtures
         ----------------
         - `example_roms_simulation` : Provides a pre-configured `ROMSSimulation` instance.
-        - ROMSDiscretization.n_procs_tot: Mocks `n_procs_tot` to return `None`.
+        - Discretization.n_procs_tot: Mocks `n_procs_tot` to return `None`.
 
         Assertions
         ----------
@@ -1958,7 +1958,7 @@ class TestProcessingAndExecution:
         sim, directory = example_roms_simulation
         sim.exe_path = directory / "ROMS/compile_time_code/roms"
         with patch(
-            "cstar.roms.simulation.ROMSDiscretization.n_procs_tot",
+            "cstar.roms.simulation.Discretization.n_procs_tot",
             new_callable=PropertyMock,
             return_value=None,
         ):

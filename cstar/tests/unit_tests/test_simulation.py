@@ -594,7 +594,7 @@ End date: 2025-12-31 00:00:00
 Valid start date: 2024-01-01 00:00:00
 Valid end date: 2026-01-01 00:00:00
 
-Discretization: Discretization(time_step = 60)
+Discretization: Discretization(time_step=60)
 
 Code:
 Codebase: MockExternalCodeBase instance (query using MockSimulation.codebase)
@@ -629,7 +629,7 @@ start_date = 2025-01-01 00:00:00,
 end_date = 2025-12-31 00:00:00,
 valid_start_date = 2024-01-01 00:00:00,
 valid_end_date = 2026-01-01 00:00:00,
-discretization = Discretization(time_step = 60),
+discretization = Discretization(time_step=60),
 codebase = <MockExternalCodeBase instance>,
 runtime_code = <AdditionalCode instance>,
 compile_time_code = <AdditionalCode instance>)"""
@@ -930,7 +930,11 @@ def test_to_dict(example_simulation):
     test_dict = sim.to_dict()
 
     assert test_dict["name"] == "TestSim"
-    assert test_dict["discretization"] == {"time_step": 60}
+    assert test_dict["discretization"] == {
+        "time_step": 60,
+        "n_procs_x": 1,
+        "n_procs_y": 1,
+    }
     assert test_dict["codebase"]["source_repo"] == "https://github.com/test/repo.git"
     assert test_dict["codebase"]["checkout_target"] == "test-tag"
     assert test_dict["runtime_code"]["location"] == str(directory.parent)

@@ -8,9 +8,9 @@ import dotenv
 import pytest
 
 from cstar.base.additional_code import AdditionalCode
+from cstar.base.discretization import Discretization
 from cstar.base.log import get_logger
 from cstar.marbl.external_codebase import MARBLExternalCodeBase
-from cstar.roms.discretization import ROMSDiscretization
 from cstar.roms.external_codebase import ROMSExternalCodeBase
 from cstar.roms.input_dataset import (
     ROMSBoundaryForcing,
@@ -220,7 +220,7 @@ def example_roms_simulation(
     sim = ROMSSimulation(
         name="ROMSTest",
         directory=directory,
-        discretization=ROMSDiscretization(time_step=60, n_procs_x=2, n_procs_y=3),
+        discretization=Discretization(time_step=60, n_procs_x=2, n_procs_y=3),
         codebase=ROMSExternalCodeBase(
             source_repo="http://my.code/repo.git", checkout_target="dev"
         ),
