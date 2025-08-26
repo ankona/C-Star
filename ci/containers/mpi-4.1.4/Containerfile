@@ -32,6 +32,7 @@ RUN apt-get update && \
     apt-get install -y \
         libpmi2-0-dev \
         openssh-client \
+        slurm-wlm \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 # end
@@ -51,11 +52,19 @@ RUN wget -q "$OPENMPI_URI" && \
     rm -rf "$OMPI_TGZ_OUT_DIR" && \
     ldconfig
 
+# RUN wget https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/3e0a3b7cac0536a0726a5fb36aceb5db1dba8506/ring.c $INSTALL_BASE_DIR/ring.c
+ADD https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/8148cfb5771b583fcb6b4692f569ddc6c747e568/ring.c "$INSTALL_BASE_DIR/ring.c"
+RUN "$INSTALL_BASE_DIR/openmpi-4.1.4/bin/mpicc" "$INSTALL_BASE_DIR/ring.c" -o "$INSTALL_BASE_DIR/ring"
+
 ENV PATH="$MPIHOME/bin:$PATH"
 ENV LD_LIBRARY_PATH="$MPIHOME/lib:$LD_LIBRARY_PATH"
 ENV CPATH="$MPIHOME/include:$CPATH"
 ENV LIBRARY_PATH="$MPIHOME/lib:$LIBRARY_PATH"
 ENV LD_RUN_PATH="$MPIHOME/lib:$LD_RUN_PATH"
+
+ENV MPIHOME="$$MPIHOME"
+ENV OMPI_ALLOW_RUN_AS_ROOT="1"
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM="1"
 
 RUN mkdir -p "/etc/profile.d" && \
     echo "export MPIHOME=$MPIHOME" >> $MPI_PROFILE && \
