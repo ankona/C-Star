@@ -31,7 +31,8 @@ ARG OMPI_TGZ_OUT_DIR=$OMPI_VERSION_NAME
 RUN apt-get update && \
     apt-get install -y \
         libpmi2-0-dev \
-        --no-install-recommends && \
+        openssh-client \
+    --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 # end
 
