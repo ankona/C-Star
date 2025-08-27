@@ -26,6 +26,11 @@ IMG_MPI414 := mpi-4.1.4
 mpi4: # buildbase
 	$(MAKE) _build action=$(ACTION_BUILD) img=$(IMG_MPI414)
 
+IMG_MPIREF := mpi-reference
+.PHONY: mpir
+mpir: # buildbase
+	$(MAKE) _build action=$(ACTION_BUILD) img=$(IMG_MPIREF)
+
 IMG_HDF5 := hdf5
 .PHONY: hdf5
 hdf5: # buildbase mpi5
