@@ -91,5 +91,12 @@ WORKDIR $INSTALL_BASE_DIR
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+
+RUN apt-get update && \
+    apt-get install -y \
+        slurm-wlm \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
 CMD []
 ENTRYPOINT ["/entrypoint.sh"]
