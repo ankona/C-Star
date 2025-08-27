@@ -30,9 +30,14 @@ ARG OMPI_TGZ_OUT_DIR=$OMPI_VERSION_NAME
 
 RUN apt-get update && \
     apt-get install -y \
+        build-essential \
+        ca-certificates \
+        automake \
+        autoconf \
+        wget \
         libpmi2-0-dev \
         openssh-client \
-        slurm-wlm \
+        # slurm-wlm \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 # end
@@ -44,9 +49,13 @@ RUN wget -q "$OPENMPI_URI" && \
     tar xvf "$OMPI_TGZ_NAME" && \
     cd "$OMPI_TGZ_OUT_DIR" && \
     ./configure \
-        --prefix="$MPIHOME" --with-pic \
+        --prefix="$MPIHOME" \
+        --with-pic \
         --with-slurm \
-        --with-pmix=internal && \
+        --with-pmi=/usr/include/slurm \
+        --with-pmi-libdir=/usr/lib/x86_64-linux-gnu \
+        CFLAGS=-I/usr/include/slurm \
+    --with-pmix=internal && \
     make -j $(nproc) && make install && cd "$SRC_DIR" && \
     rm "$OMPI_TGZ_NAME" && \
     rm -rf "$OMPI_TGZ_OUT_DIR" && \
@@ -62,7 +71,7 @@ ENV CPATH="$MPIHOME/include:$CPATH"
 ENV LIBRARY_PATH="$MPIHOME/lib:$LIBRARY_PATH"
 ENV LD_RUN_PATH="$MPIHOME/lib:$LD_RUN_PATH"
 
-ENV MPIHOME="$$MPIHOME"
+ENV MPIHOME="$MPIHOME"
 ENV OMPI_ALLOW_RUN_AS_ROOT="1"
 ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM="1"
 
