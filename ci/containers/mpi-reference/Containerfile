@@ -1,0 +1,32 @@
+FROM ubuntu:focal
+WORKDIR /opt
+
+#slightly adapted from https://sarus.readthedocs.io/en/stable/user/user_guide.html#running-mpi-applications-without-the-native-mpi-hook
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update && apt-get install -y \
+        build-essential \
+        ca-certificates \
+        automake \
+        autoconf \
+        wget \
+        libpmi2-0-dev \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+
+ARG openmpi_version=4.1.4
+
+RUN wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-$openmpi_version.tar.gz \
+    && tar xf openmpi-$openmpi_version.tar.gz \
+    && cd openmpi-$openmpi_version \
+    && ./configure --prefix=/opt/openmpi --with-slurm  --with-pmi=/usr/include/slurm --with-pmi-libdir=/usr/lib/x86_64-linux-gnu CFLAGS=-I/usr/include/slurm \
+    && make -j 32 \
+    && make install \
+    && cd .. \
+    && rm -rf openmpi-$openmpi_version.tar.gz openmpi-$openmpi_version
+
+RUN /sbin/ldconfig
+
+ENV PATH=/opt/openmpi/bin:$PATH
