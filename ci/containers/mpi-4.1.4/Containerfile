@@ -37,6 +37,7 @@ RUN apt-get update && \
         wget \
         libpmi2-0-dev \
         openssh-client \
+        # libssl \
         # slurm-wlm \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
@@ -54,15 +55,15 @@ RUN wget -q "$OPENMPI_URI" && \
         --with-slurm \
         --with-pmi=/usr/include/slurm \
         --with-pmi-libdir=/usr/lib/x86_64-linux-gnu \
+        # --with-pmix=internal && \
         CFLAGS=-I/usr/include/slurm \
-    --with-pmix=internal && \
     make -j $(nproc) && make install && cd "$SRC_DIR" && \
     rm "$OMPI_TGZ_NAME" && \
     rm -rf "$OMPI_TGZ_OUT_DIR" && \
     ldconfig
 
 # RUN wget https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/3e0a3b7cac0536a0726a5fb36aceb5db1dba8506/ring.c $INSTALL_BASE_DIR/ring.c
-ADD https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/854bbf9e8135aee59becd8f903283cd46c899f3b/ring.c "$INSTALL_BASE_DIR/ring.c"
+ADD https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/4214d2af266faa5c7caa07ce21e33e128bc2ce63/ring.c "$INSTALL_BASE_DIR/ring.c"
 RUN "$INSTALL_BASE_DIR/openmpi-4.1.4/bin/mpicc" "$INSTALL_BASE_DIR/ring.c" -o "$INSTALL_BASE_DIR/ring"
 
 ENV PATH="$MPIHOME/bin:$PATH"
