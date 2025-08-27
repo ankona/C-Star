@@ -56,7 +56,7 @@ RUN wget -q "$OPENMPI_URI" && \
         --with-pmi=/usr/include/slurm \
         --with-pmi-libdir=/usr/lib/x86_64-linux-gnu \
         # --with-pmix=internal && \
-        CFLAGS=-I/usr/include/slurm \
+        CFLAGS=-I/usr/include/slurm && \
     make -j $(nproc) && make install && cd "$SRC_DIR" && \
     rm "$OMPI_TGZ_NAME" && \
     rm -rf "$OMPI_TGZ_OUT_DIR" && \
