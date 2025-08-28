@@ -49,5 +49,11 @@ WORKDIR $INSTALL_BASE_DIR
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-CMD []
-ENTRYPOINT ["/entrypoint.sh"]
+ENV OMPI_ALLOW_RUN_AS_ROOT="1"
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM="1"
+
+COPY ring.c /opt/ring.c
+RUN "$MPIHOME/bin/mpicc" "$INSTALL_BASE_DIR/ring.c" -o "$INSTALL_BASE_DIR/ring"
+
+# CMD []
+# ENTRYPOINT ["/entrypoint.sh"]
