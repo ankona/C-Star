@@ -123,5 +123,5 @@ RUN chmod +x /entrypoint.sh
 # CMD []
 # ENTRYPOINT ["/entrypoint.sh"]
 
-CMD []
-ENTRYPOINT ["/entrypoint.sh", "mpirun", "-n", "2", "/opt/ring"]
+# CMD []
+# ENTRYPOINT ["/entrypoint.sh", "mpirun", "-n", "2", "/opt/ring"]
