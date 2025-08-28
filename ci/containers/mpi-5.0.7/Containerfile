@@ -15,6 +15,16 @@ ARG MPI_PROFILE="/etc/profile.d/ompi-5.0.7.sh"
 
 RUN mkdir -p "$SRC_DIR"
 
+RUN apt-get update && \
+    apt-get install -y \
+        # libpmi2-0-dev \
+        libpmix-dev \
+        openssh-client \
+        # libssl \
+        # slurm-wlm \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR "$SRC_DIR"
 RUN wget -q "$OPENMPI_URI" && \
     tar xvf "$OMPI_TGZ_NAME" && \
@@ -23,6 +33,10 @@ RUN wget -q "$OPENMPI_URI" && \
         --prefix="$MPIHOME" --with-pic \
         --with-slurm \
         --with-pmix=internal && \
+                    # --with-pmi=/usr/include/slurm \
+                    # --with-pmi-libdir=/usr/lib/x86_64-linux-gnu \
+        # --with-pmix=/user/include/slurm && \
+        # --with-pmix=/usr/lib/x86_64-linux-gnu/pmix2 && \
     make -j $(nproc) && make install && cd "$SRC_DIR" && \
     rm "$OMPI_TGZ_NAME" && \
     rm -rf "$OMPI_TGZ_OUT_DIR" && \

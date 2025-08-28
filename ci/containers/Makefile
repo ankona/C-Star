@@ -21,10 +21,10 @@ IMG_MPI507 := mpi-5.0.7
 mpi5: # buildbase
 	$(MAKE) _build action=$(ACTION_BUILD) img=$(IMG_MPI507)
 
-IMG_MPI414 := mpi-4.1.4
+IMG_MPI416 := mpi-4.1.6
 .PHONY: mpi4
 mpi4: # buildbase
-	$(MAKE) _build action=$(ACTION_BUILD) img=$(IMG_MPI414)
+	$(MAKE) _build action=$(ACTION_BUILD) img=$(IMG_MPI416)
 
 IMG_MPIREF := mpi-reference
 .PHONY: mpir
