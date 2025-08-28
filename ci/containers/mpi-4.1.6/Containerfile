@@ -1,0 +1,127 @@
+ARG ACCT="C-Worthy"
+ARG IMG_BUILDBASE="ubuntu:24.04"  
+# "$ACCT/cstar-buildbase:latest"
+ARG MAIN_STAGE="main"  # pass `add_test` to build the test program /runtest
+
+FROM $IMG_BUILDBASE as main
+
+# ARG OPENMPI_URI="https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.7.tar.gz"
+# ARG OMPI_TGZ_NAME="openmpi-5.0.7.tar.gz" 
+# ARG OMPI_TGZ_OUT_DIR="openmpi-5.0.7"
+
+ARG SRC_DIR="/tmp/install"
+ARG INSTALL_BASE_DIR="/opt"
+ARG openmpi_version=4.1.6
+ENV MPIHOME="$INSTALL_BASE_DIR/$OMPI_TGZ_OUT_DIR"
+# ARG MPI_PROFILE="/etc/profile.d/ompi-5.0.7.sh"
+ARG MPI_PROFILE="/etc/profile.d/ompi-4.1.6.sh"
+
+# begin copypata...
+ENV openmpi_minor_version="4.1"
+ENV OMPI_VERSION_NAME="openmpi-$openmpi_version"
+ARG OMPI_TGZ_NAME="$OMPI_VERSION_NAME.tar.gz" 
+ARG OPENMPI_URI="https://download.open-mpi.org/release/open-mpi/v$openmpi_minor_version/$OMPI_TGZ_NAME"
+# ENV MPIHOME="/opt/$OMPI_VERSION_NAME"
+ENV MPIHOME="/opt/$OMPI_VERSION_NAME"
+ARG MPI_PROFILE="/etc/profile.d/50-$OMPI_VERSION_NAME.sh"
+
+ARG OMPI_TGZ_OUT_DIR=$OMPI_VERSION_NAME
+# ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update && \
+    apt-get install -y \
+        build-essential \
+        ca-certificates \
+        automake \
+        autoconf \
+        wget \
+        python3-dev \
+        python3-pip \
+        libpmi2-0-dev \
+        libpmix-dev \
+        openssh-client \
+        # libssl \
+        # slurm-wlm \
+    --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+# end
+
+RUN mkdir -p "$SRC_DIR"
+
+WORKDIR "$SRC_DIR"
+# RUN wget -q "$OPENMPI_URI" && \
+#     tar xvf "$OMPI_TGZ_NAME" && \
+#     cd "$OMPI_TGZ_OUT_DIR" && \
+#     ./configure \
+#         --prefix="$MPIHOME" \
+#         --with-pic \
+#         --with-slurm \
+#         --with-pmi=/usr/include/slurm \
+#         --with-pmi-libdir=/usr/lib/x86_64-linux-gnu \
+#         # --with-pmix=internal && \
+#         CFLAGS=-I/usr/include/slurm && \
+#     make -j $(nproc) && make install && cd "$SRC_DIR" && \
+#     rm "$OMPI_TGZ_NAME" && \
+#     rm -rf "$OMPI_TGZ_OUT_DIR" && \
+#     ldconfig
+ENV MPIHOME="/opt/openmpi"
+
+RUN wget https://download.open-mpi.org/release/open-mpi/v4.1/$OMPI_VERSION_NAME.tar.gz \
+    && tar xf $OMPI_VERSION_NAME.tar.gz \
+    && cd $OMPI_VERSION_NAME \
+    && CFLAGS=-I/usr/include/slurm \
+       ./configure \
+        --prefix="$MPIHOME" \
+        --with-slurm \
+        --with-pmi=/usr/include/slurm \
+        --with-pmi-libdir=/usr/lib/x86_64-linux-gnu \
+        --with-pmix=external \
+        --with-pmix=/usr/lib/x86_64-linux-gnu/pmix2 \
+    && make -j 32 \
+    && make install \
+    && cd .. \
+    && rm -rf $OMPI_VERSION_NAME.tar.gz $OMPI_VERSION_NAME
+
+
+# RUN wget https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/3e0a3b7cac0536a0726a5fb36aceb5db1dba8506/ring.c $INSTALL_BASE_DIR/ring.c
+# ADD https://gist.githubusercontent.com/ankona/42bd3fd28cbeec4da65ed57f0529b8dc/raw/4214d2af266faa5c7caa07ce21e33e128bc2ce63/ring.c "$INSTALL_BASE_DIR/ring.c"
+COPY ring.c /opt/ring.c
+RUN "$MPIHOME/bin/mpicc" "$INSTALL_BASE_DIR/ring.c" -o "$INSTALL_BASE_DIR/ring"
+
+ENV PATH="$MPIHOME/bin:$PATH"
+ENV LD_LIBRARY_PATH="$MPIHOME/lib:$LD_LIBRARY_PATH"
+ENV CPATH="$MPIHOME/include:$CPATH"
+ENV LIBRARY_PATH="$MPIHOME/lib:$LIBRARY_PATH"
+ENV LD_RUN_PATH="$MPIHOME/lib:$LD_RUN_PATH"
+
+ENV MPIHOME="$MPIHOME"
+ENV OMPI_ALLOW_RUN_AS_ROOT="1"
+ENV OMPI_ALLOW_RUN_AS_ROOT_CONFIRM="1"
+
+RUN mkdir -p "/etc/profile.d" && \
+    echo "export MPIHOME=$MPIHOME" >> $MPI_PROFILE && \
+    echo 'export PATH=$MPIHOME/bin:$PATH' >> $MPI_PROFILE && \
+    echo 'export LD_LIBRARY_PATH=$MPIHOME/lib:$LD_LIBRARY_PATH' >> $MPI_PROFILE && \
+    echo 'export CPATH=$MPIHOME/include:$CPATH' >> $MPI_PROFILE && \
+    echo 'export LIBRARY_PATH=$MPIHOME/lib:$LIBRARY_PATH' >> $MPI_PROFILE && \
+    echo 'export LD_RUN_PATH=$MPIHOME/lib:$LD_RUN_PATH' >> $MPI_PROFILE && \
+    echo 'export OMPI_ALLOW_RUN_AS_ROOT=1' >> $MPI_PROFILE && \
+    echo 'export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1' >> $MPI_PROFILE
+
+WORKDIR $INSTALL_BASE_DIR
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+
+# RUN apt-get update && \
+#     apt-get install -y \
+#         slurm-wlm \
+#     --no-install-recommends && \
+#     rm -rf /var/lib/apt/lists/*
+
+# CMD []
+# ENTRYPOINT ["/entrypoint.sh"]
+
+CMD []
+ENTRYPOINT ["/entrypoint.sh", "mpirun", "-n", "2", "/opt/ring"]
