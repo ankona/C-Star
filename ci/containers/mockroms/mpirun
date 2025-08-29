@@ -1,0 +1,17 @@
+#!/bin/bash
+# set -e
+
+# SCRIPT="$0"
+# ARGS_LIST="$@"
+# PARAMS="${ARGS_LIST[@]:3}"
+# ORC_PORT="41357"
+# ORC_HOST=$(ip addr show bond0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)
+# HOST_URI="http://$ORC_HOST:$ORC_PORT"
+
+printf "hitting $CSTAR_ORCHESTRATOR_URI\n"
+
+CONTENT="{\"command\": \"mpirun $*\"}"
+printf "Sending: $CONTENT\n"
+printf "Target: $CSTAR_ORCHESTRATOR_URI\n"
+curl --json "$CONTENT" "$CSTAR_ORCHESTRATOR_URI/task"
+printf "\n"
