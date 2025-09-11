@@ -1,116 +1,250 @@
-import enum
+import abc
 import typing as t
-from pathlib import Path
 
 from pydantic import BaseModel
-from yaml import parse
 
+from cstar.base.additional_code import AdditionalCode
+from cstar.marbl.external_codebase import MARBLExternalCodeBase
 from cstar.orchestration import models
 from cstar.roms import ROMSSimulation
+from cstar.roms.discretization import ROMSDiscretization
+from cstar.roms.external_codebase import ROMSExternalCodeBase
+from cstar.roms.input_dataset import (
+    ROMSBoundaryForcing,
+    ROMSInitialConditions,
+    ROMSModelGrid,
+    ROMSRiverForcing,
+    ROMSSurfaceForcing,
+    ROMSTidalForcing,
+)
 
-# TODO: rename module to 'adapters'
+_Tin = t.TypeVar("_Tin", bound=BaseModel)
+_Tout = t.TypeVar("_Tout")
 
-
-class PersistenceMode(enum.StrEnum):
-    """Supported serialization engines."""
-
-    json = enum.auto()
-    yaml = enum.auto()
-    auto = enum.auto()
-
-
-def _bp_to_sim(model: models.Blueprint) -> ROMSSimulation | None: ...
-
-
-def _wp_to_sim(model: models.WorkPlan) -> ROMSSimulation | None:
-    """This doesn't make sense unless the mapping functions return an iterable
-    that can be used to iterate over all the underlying simulations...
-
-    Do I really want this in deserialization?
-    """
+# TODO: consider doing a straight up JSON conversion of the model to a format
+# that would deserialize into the target "native" object instead of this?
 
 
-_T = t.TypeVar("_T", bound=BaseModel)
+class ModelAdapter(t.Generic[_Tin, _Tout], abc.ABC):
+    model: _Tin
+
+    def __init__(self, model: _Tin) -> None:
+        self.model = model
+
+    @abc.abstractmethod
+    def convert(self) -> _Tout: ...
 
 
-def _read_json(path: Path, klass: type[_T]) -> _T:
-    with path.open("r", encoding="utf-8") as fp:
-        return klass.model_validate_json(json_data=fp.read())
+class DiscretizationAdapter(ModelAdapter[models.Blueprint, ROMSDiscretization]):
+    """Convert a blueprint model to a concrete instance."""
+
+    # def __init__(self, model: models.Blueprint) -> None:
+    #     self.model = model
+
+    @t.override
+    def convert(self) -> ROMSDiscretization:
+        return ROMSDiscretization(
+            time_step=1,
+            n_procs_x=self.model.partitioning.n_procs_x,
+            n_procs_y=self.model.partitioning.n_procs_y,
+        )
 
 
-def _read_yaml(path: Path, klass: type[_T]) -> _T:
-    with path.open("r", encoding="utf-8") as fp:
-        model_dict = parse(fp)
-        return klass.model_validate(model_dict)
+class AddtlCodeAdapter(ModelAdapter[models.Blueprint, AdditionalCode]):
+    """Convert a blueprint model to a concrete instance."""
+
+    def __init__(self, model: models.Blueprint, key: str) -> None:
+        super().__init__(model)
+        self.key = key
+
+    @t.override
+    def convert(self) -> AdditionalCode:
+        code_attr: models.CodeRepository = getattr(self.model.code, self.key)
+
+        return AdditionalCode(
+            location=(self.model.runtime_params.output_dir / "runtime").as_posix(),
+            subdir=(str(code_attr.filter.directory) if code_attr.filter else ""),
+            checkout_target=code_attr.commit or code_attr.branch,
+            files=(code_attr.filter.files if code_attr.filter else []),
+        )
 
 
-adapter_map: dict[
-    type[models.Blueprint | models.WorkPlan],
-    t.Callable[[models.Blueprint], ROMSSimulation | None]
-    | t.Callable[[models.WorkPlan], ROMSSimulation | None],
-] = {
-    models.Blueprint: _bp_to_sim,
-    models.WorkPlan: _wp_to_sim,
-}
+class CodebaseAdapter(ModelAdapter[models.Blueprint, ROMSExternalCodeBase]):
+    """Convert a blueprint model to a concrete instance."""
 
-_DT = t.TypeVar("_DT", models.Blueprint, models.WorkPlan)
+    @t.override
+    def convert(self) -> ROMSExternalCodeBase:
+        return ROMSExternalCodeBase(
+            source_repo=str(self.model.code.roms.url),
+            checkout_target=self.model.code.roms.commit or self.model.code.roms.branch,
+        )
 
 
-def deserialize(
-    path: Path,
-    klass: type[_DT],
-    mode: PersistenceMode = PersistenceMode.auto,
-) -> ROMSSimulation | None:
-    """Deserialize a blueprint into a Simulation instance.
+class MARBLAdapter(ModelAdapter[models.Blueprint, MARBLExternalCodeBase]):
+    """Convert a blueprint model to a concrete instance."""
 
-    Parameters
-    ----------
-    path : Path
-        The location of the blueprint
-    mode : t.Literal["json", "yaml", "auto"]
-        The type of serializer used to create the file.
+    @t.override
+    def convert(self) -> MARBLExternalCodeBase:
+        if self.model.code.marbl is None:
+            msg = "MARBL codebase not found"
+            raise RuntimeError(msg)
 
-        The default value of `auto` selects based on the file extension.
+        return MARBLExternalCodeBase(
+            source_repo=str(self.model.code.marbl.url),
+            checkout_target=self.model.code.marbl.commit
+            or self.model.code.marbl.branch,
+        )
 
-    Raises
-    ------
-    FileNotFoundError:
-        If the blueprint file does not exist
-    ValueError
-        If the blueprint cannot be deserialized with the desired mode
 
-    Returns
-    -------
-    Simulation
-        The deserialized Simulation instance.
+class GridAdapter(ModelAdapter[models.Blueprint, ROMSModelGrid]):
+    """Convert a blueprint model to a concrete instance."""
 
-    # TODO: Deserializing to a simulation will LOSE information about
-    # the state of the blueprint (e.g. locked fields, draft mode). This might
-    # only be useful at the very last moment when execution is desired?
-    """
-    if not path.exists():
-        msg = f"The blueprint file could not be found at the path `{path}`"
-        raise FileNotFoundError(msg)
+    @t.override
+    def convert(self) -> ROMSModelGrid:
+        if self.model.code.marbl is None:
+            msg = "MARBL codebase not found"
+            raise RuntimeError(msg)
 
-    model: _DT | None = None
-    ext = path.suffix
-    is_auto = mode = PersistenceMode.auto
-    use_json = (is_auto and ext == ".json") or mode == PersistenceMode.json
-    use_yaml = (is_auto and (ext in {".yaml", ".yml"})) or mode == PersistenceMode.yaml
+        return ROMSModelGrid(
+            location=str(self.model.runtime_params.output_dir / "model_grid"),
+            # WARNING - path is not valid...
+            file_hash="",
+            start_date=self.model.runtime_params.start_date,
+            end_date=self.model.runtime_params.start_date,
+        )
 
-    if use_json:
-        model = _read_json(path, klass)
-    elif use_yaml:
-        model = _read_yaml(path, klass)
 
-    if model is None:
-        msg = f"Unable to deserialize the blueprint at `{path}` as `{mode}`"
-        raise ValueError(msg)
+class ConditionAdapter(ModelAdapter[models.Blueprint, ROMSInitialConditions]):
+    """Convert a blueprint model to a concrete instance."""
 
-    # TODO: doing this generic is kind of a kludge - In the case of a single simulation,
-    # e.g. blueprint, I need to return a single item. When using a WorkPlan, this will
-    # should return more than one.
-    #
-    # TODONT: Do NOT build a DAG at this level? again, info loss on conversion?
-    map_fn = adapter_map[klass]
-    return map_fn(model)
+    @t.override
+    def convert(self) -> ROMSInitialConditions:
+        return ROMSInitialConditions(
+            location=str(
+                self.model.runtime_params.output_dir / "initial_conditions",
+            ),
+            # WARNING - path is not valid...
+            start_date=self.model.runtime_params.start_date,
+            end_date=self.model.runtime_params.start_date,
+        )
+
+
+class TidalForcingAdapter(ModelAdapter[models.Blueprint, ROMSTidalForcing]):
+    """Convert a blueprint model to a concrete instance."""
+
+    # def __init__(self, model: models.Blueprint, key: str) -> None:
+    #     super().__init__(model)
+    #     self.key = key
+
+    @t.override
+    def convert(self) -> ROMSTidalForcing:
+        # code_attr: models.Forcing = getattr(self.model.code, self.key)
+
+        return ROMSTidalForcing(
+            location=str(
+                self.model.runtime_params.output_dir / "forcing/tidal",
+            ),
+            # WARNING - path is not valid...
+            start_date=self.model.runtime_params.start_date,
+            end_date=self.model.runtime_params.start_date,
+        )
+
+
+class RiverForcingAdapter(ModelAdapter[models.Blueprint, ROMSRiverForcing]):
+    """Convert a blueprint model to a concrete instance."""
+
+    # def __init__(self, model: models.Blueprint, key: str) -> None:
+    #     super().__init__(model)
+    #     self.key = key
+
+    @t.override
+    def convert(self) -> ROMSRiverForcing:
+        # code_attr: models.Forcing = getattr(self.model.code, self.key)
+
+        return ROMSRiverForcing(
+            location=str(
+                self.model.runtime_params.output_dir / "forcing/river",
+            ),
+            # WARNING - path is not valid...
+            start_date=self.model.runtime_params.start_date,
+            end_date=self.model.runtime_params.start_date,
+        )
+
+
+class BoundaryForcingAdapter(ModelAdapter[models.Blueprint, ROMSBoundaryForcing]):
+    """Convert a blueprint model to a concrete instance."""
+
+    # def __init__(self, model: models.Blueprint, key: str) -> None:
+    #     super().__init__(model)
+    #     self.key = key
+
+    @t.override
+    def convert(self) -> ROMSBoundaryForcing:
+        # code_attr: models.Forcing = getattr(self.model.code, self.key)
+
+        return ROMSBoundaryForcing(
+            location=str(
+                self.model.runtime_params.output_dir / "forcing/boundary",
+            ),
+            # WARNING - path is not valid...
+            start_date=self.model.runtime_params.start_date,
+            end_date=self.model.runtime_params.start_date,
+        )
+
+
+class SurfaceForcingAdapter(ModelAdapter[models.Blueprint, ROMSSurfaceForcing]):
+    """Convert a blueprint model to a concrete instance."""
+
+    # def __init__(self, model: models.Blueprint, key: str) -> None:
+    #     super().__init__(model)
+    #     self.key = key
+
+    @t.override
+    def convert(self) -> ROMSSurfaceForcing:
+        # code_attr: models.Forcing = getattr(self.model.code, self.key)
+
+        return ROMSSurfaceForcing(
+            location=str(
+                self.model.runtime_params.output_dir / "forcing/surface",
+            ),
+            # WARNING - path is not valid...
+            start_date=self.model.runtime_params.start_date,
+            end_date=self.model.runtime_params.start_date,
+        )
+
+
+class BlueprintAdapter(ModelAdapter[models.Blueprint, ROMSSimulation]):
+    """Convert a blueprint model to a concrete instance."""
+
+    def __init__(self, model: models.Blueprint) -> None:
+        self.model = model
+
+    @t.override
+    def convert(self) -> ROMSSimulation:
+        return ROMSSimulation(
+            name=self.model.name,
+            directory=self.model.runtime_params.output_dir,
+            discretization=DiscretizationAdapter(self.model).convert(),
+            runtime_code=AddtlCodeAdapter(self.model, "run_time").convert(),
+            compile_time_code=AddtlCodeAdapter(self.model, "compile_time").convert(),
+            codebase=CodebaseAdapter(self.model).convert(),
+            start_date=self.model.runtime_params.start_date,
+            end_date=self.model.runtime_params.end_date,
+            valid_start_date=self.model.valid_start_date,
+            valid_end_date=self.model.valid_end_date,
+            marbl_codebase=(
+                MARBLAdapter(self.model).convert() if self.model.code.marbl else None
+            ),
+            model_grid=GridAdapter(self.model).convert(),
+            initial_conditions=ConditionAdapter(self.model).convert(),
+            tidal_forcing=TidalForcingAdapter(self.model).convert(),
+            river_forcing=RiverForcingAdapter(self.model).convert(),
+            boundary_forcing=[
+                # WARNING - current schema does not take into account a forcing LIST
+                BoundaryForcingAdapter(self.model).convert(),
+            ],
+            surface_forcing=[
+                # WARNING - current schema does not take into account a forcing LIST
+                SurfaceForcingAdapter(self.model).convert(),
+            ],
+        )

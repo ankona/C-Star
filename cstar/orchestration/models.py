@@ -1,5 +1,6 @@
 import typing as t
 from copy import deepcopy
+from datetime import datetime, timezone
 from enum import StrEnum, auto
 from pathlib import Path
 
@@ -136,10 +137,10 @@ class ROMSCompositeCodeRepository(BaseModel):
     roms: CodeRepository
     """The baseline ROMS repository."""
 
-    runtime_code: CodeRepository
+    run_time: CodeRepository
     """Codebase used to modify the runtime behavior of ROMS."""
 
-    compile_code: CodeRepository
+    compile_time: CodeRepository
     """Codebase used to modify base ROMS compilation."""
 
     marbl: CodeRepository | None = Field(default=None, validate_default=False)
@@ -219,10 +220,10 @@ class RuntimeParameterSet(ParameterSet):
     Supports user-defined attributes to enable customization.
     """
 
-    start_date: PastDatetime
+    start_date: PastDatetime = datetime(1, 1, 1, tzinfo=timezone.utc)
     """Start of data time range to be used in the simulation."""
 
-    end_date: PastDatetime
+    end_date: PastDatetime = datetime(1, 1, 1, tzinfo=timezone.utc)
     """End of data time range to be used in the simulation."""
 
     # restart_freq: str
@@ -316,15 +317,18 @@ class Blueprint(BaseModel):
     forcing: ForcingConfiguration
     """Forcing configuration."""
 
-    partitioning: ParameterSet = ParameterSet()
+    partitioning: PartitioningParameterSet = PartitioningParameterSet()
     """User-defined partitioning parameters."""
 
     model_params: ParameterSet = ParameterSet()
     """User-defined model parameters."""
 
     # should this be nullable instead of a union with a default?
-    runtime_params: ParameterSet | RuntimeParameterSet = ParameterSet()
+    runtime_params: RuntimeParameterSet = RuntimeParameterSet()
     """User-defined runtime parameters."""
+
+    grid: Grid = Grid(min_latitude=0, max_latitude=0, min_longitude=0, max_longitude=0)
+    """TEMPORARY placeholder for the grid..."""
 
     @model_validator(mode="after")
     def _model_validator(self) -> "Blueprint":
