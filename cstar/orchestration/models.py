@@ -287,15 +287,6 @@ class PartitioningParameterSet(ParameterSet):
     n_procs_y: int = 8
     """Number of processes used to subdivide the domain on the y-axis."""
 
-    @model_validator(mode="after")
-    def _model_validator(self) -> "PartitioningParameterSet":
-        """Perform validation on the model after field-level validation is complete."""
-        if self.end_date <= self.start_date:
-            msg = "start_date must precede end_date"
-            raise ValueError(msg)
-
-        return self
-
 
 class Blueprint(BaseModel):
     name: RequiredString
