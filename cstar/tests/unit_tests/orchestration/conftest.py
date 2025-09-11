@@ -2,9 +2,9 @@
 
 import json
 import pathlib
+import subprocess as sub
 import textwrap
 import typing as t
-import uuid
 from pathlib import Path
 
 import pytest
@@ -171,10 +171,11 @@ def gen_fake_steps(tmp_path: Path) -> t.Callable[[int], t.Generator[Step, None, 
 
     def _gen_fake_steps(num_steps: int) -> t.Generator[Step, None, None]:
         """Create `num_steps` fake steps."""
-        for _ in range(num_steps):
-            step_name = f"test-step-{uuid.uuid4()}"
-            app_name = f"test-app-{uuid.uuid4()}"
-            path = tmp_path / f"dummy-blueprint-{uuid.uuid4()}.yml"
+        for i in range(num_steps):
+            unique_part = f"{i + 1:03d}"
+            step_name = f"step-{unique_part}"
+            app_name = f"app-{unique_part}"
+            path = tmp_path / f"blueprint-{unique_part}.yml"
             path.touch()
 
             yield Step(
@@ -480,14 +481,14 @@ def fill_blueprint_template(
                 documentation: http://mockdoc.com/partitioning
                 locked: false
                 data:
-                  location: http://mockdoc.com/partitioning.nc
-                  hash: abc123
+                  - location: http://mockdoc.com/partitioning.nc
+                    hash: abc123
               river:
                 documentation: http://mockdoc.com/partitioning
                 locked: false
                 data:
-                  location: http://mockdoc.com/partitioning.nc
-                  hash: abc123
+                  - location: http://mockdoc.com/partitioning.nc
+                    hash: abc123
             partitioning:
               documentation: http://mockdoc.com/partitioning
               hash: null
@@ -496,6 +497,7 @@ def fill_blueprint_template(
               n_procs_y: 8
             model_params:
               documentation: http://mockdoc.com/model-params
+              time_step: 1
               hash: null
               locked: false
             runtime_params:
@@ -509,12 +511,10 @@ def fill_blueprint_template(
             grid:
               documentation: http://mockdoc.com/model-params
               data:
-                location: http://mockdoc.com/grid
+                - location: http://mockdoc.com/grid
             initial_conditions:
               data:
-                location: http://mockdoc.com/grid
-            model_params:
-              time_step: 1
+                - location: http://mockdoc.com/grid
             """,
         )
 
@@ -523,3 +523,22 @@ def fill_blueprint_template(
         return populated
 
     return _get_blueprint_template
+
+
+@pytest.fixture
+def prefect_server() -> t.Generator[sub.Popen]:
+    process = sub.Popen(  # noqa: S603
+        [  # noqa: S607
+            "prefect",
+            "profile",
+            "use",
+            "ephemeral",
+            "&&",
+            "prefect",
+            "server",
+            "start",
+        ],
+        text=True,
+    )
+    yield process
+    process.kill()

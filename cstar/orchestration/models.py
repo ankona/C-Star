@@ -2,7 +2,7 @@ import typing as t
 from abc import ABC
 from copy import deepcopy
 from datetime import datetime
-from enum import StrEnum, auto
+from enum import IntEnum, StrEnum, auto
 from pathlib import Path
 
 from pydantic import (
@@ -538,3 +538,15 @@ class Workplan(BaseModel):
     def _model_validator(self) -> "Workplan":
         """Validate attribute relationships."""
         return self
+
+
+class TaskStatus(IntEnum):
+    """Execution statuses for a task."""
+
+    Waiting = 0
+    Ready = 100
+    Active = 200
+    Done = 300
+    Aborted = 400
+    Failed = 500
+    Unknown = 600
