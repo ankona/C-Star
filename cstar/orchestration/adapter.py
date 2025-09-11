@@ -32,7 +32,7 @@ class ModelAdapter(t.Generic[_Tin, _Tout], abc.ABC):
         self.model = model
 
     @abc.abstractmethod
-    def convert(self) -> _Tout: ...
+    def adapt(self) -> _Tout: ...
 
 
 class DiscretizationAdapter(ModelAdapter[models.Blueprint, ROMSDiscretization]):
@@ -42,7 +42,7 @@ class DiscretizationAdapter(ModelAdapter[models.Blueprint, ROMSDiscretization]):
     #     self.model = model
 
     @t.override
-    def convert(self) -> ROMSDiscretization:
+    def adapt(self) -> ROMSDiscretization:
         return ROMSDiscretization(
             time_step=1,
             n_procs_x=self.model.partitioning.n_procs_x,
@@ -58,7 +58,7 @@ class AddtlCodeAdapter(ModelAdapter[models.Blueprint, AdditionalCode]):
         self.key = key
 
     @t.override
-    def convert(self) -> AdditionalCode:
+    def adapt(self) -> AdditionalCode:
         code_attr: models.CodeRepository = getattr(self.model.code, self.key)
 
         return AdditionalCode(
@@ -73,7 +73,7 @@ class CodebaseAdapter(ModelAdapter[models.Blueprint, ROMSExternalCodeBase]):
     """Convert a blueprint model to a concrete instance."""
 
     @t.override
-    def convert(self) -> ROMSExternalCodeBase:
+    def adapt(self) -> ROMSExternalCodeBase:
         return ROMSExternalCodeBase(
             source_repo=str(self.model.code.roms.url),
             checkout_target=self.model.code.roms.commit or self.model.code.roms.branch,
@@ -84,7 +84,7 @@ class MARBLAdapter(ModelAdapter[models.Blueprint, MARBLExternalCodeBase]):
     """Convert a blueprint model to a concrete instance."""
 
     @t.override
-    def convert(self) -> MARBLExternalCodeBase:
+    def adapt(self) -> MARBLExternalCodeBase:
         if self.model.code.marbl is None:
             msg = "MARBL codebase not found"
             raise RuntimeError(msg)
@@ -100,7 +100,7 @@ class GridAdapter(ModelAdapter[models.Blueprint, ROMSModelGrid]):
     """Convert a blueprint model to a concrete instance."""
 
     @t.override
-    def convert(self) -> ROMSModelGrid:
+    def adapt(self) -> ROMSModelGrid:
         if self.model.code.marbl is None:
             msg = "MARBL codebase not found"
             raise RuntimeError(msg)
@@ -118,7 +118,7 @@ class ConditionAdapter(ModelAdapter[models.Blueprint, ROMSInitialConditions]):
     """Convert a blueprint model to a concrete instance."""
 
     @t.override
-    def convert(self) -> ROMSInitialConditions:
+    def adapt(self) -> ROMSInitialConditions:
         return ROMSInitialConditions(
             location=str(
                 self.model.runtime_params.output_dir / "initial_conditions",
@@ -137,7 +137,7 @@ class TidalForcingAdapter(ModelAdapter[models.Blueprint, ROMSTidalForcing]):
     #     self.key = key
 
     @t.override
-    def convert(self) -> ROMSTidalForcing:
+    def adapt(self) -> ROMSTidalForcing:
         # code_attr: models.Forcing = getattr(self.model.code, self.key)
 
         return ROMSTidalForcing(
@@ -158,7 +158,7 @@ class RiverForcingAdapter(ModelAdapter[models.Blueprint, ROMSRiverForcing]):
     #     self.key = key
 
     @t.override
-    def convert(self) -> ROMSRiverForcing:
+    def adapt(self) -> ROMSRiverForcing:
         # code_attr: models.Forcing = getattr(self.model.code, self.key)
 
         return ROMSRiverForcing(
@@ -179,7 +179,7 @@ class BoundaryForcingAdapter(ModelAdapter[models.Blueprint, ROMSBoundaryForcing]
     #     self.key = key
 
     @t.override
-    def convert(self) -> ROMSBoundaryForcing:
+    def adapt(self) -> ROMSBoundaryForcing:
         # code_attr: models.Forcing = getattr(self.model.code, self.key)
 
         return ROMSBoundaryForcing(
@@ -200,7 +200,7 @@ class SurfaceForcingAdapter(ModelAdapter[models.Blueprint, ROMSSurfaceForcing]):
     #     self.key = key
 
     @t.override
-    def convert(self) -> ROMSSurfaceForcing:
+    def adapt(self) -> ROMSSurfaceForcing:
         # code_attr: models.Forcing = getattr(self.model.code, self.key)
 
         return ROMSSurfaceForcing(
@@ -220,31 +220,31 @@ class BlueprintAdapter(ModelAdapter[models.Blueprint, ROMSSimulation]):
         self.model = model
 
     @t.override
-    def convert(self) -> ROMSSimulation:
+    def adapt(self) -> ROMSSimulation:
         return ROMSSimulation(
             name=self.model.name,
             directory=self.model.runtime_params.output_dir,
-            discretization=DiscretizationAdapter(self.model).convert(),
-            runtime_code=AddtlCodeAdapter(self.model, "run_time").convert(),
-            compile_time_code=AddtlCodeAdapter(self.model, "compile_time").convert(),
-            codebase=CodebaseAdapter(self.model).convert(),
+            discretization=DiscretizationAdapter(self.model).adapt(),
+            runtime_code=AddtlCodeAdapter(self.model, "run_time").adapt(),
+            compile_time_code=AddtlCodeAdapter(self.model, "compile_time").adapt(),
+            codebase=CodebaseAdapter(self.model).adapt(),
             start_date=self.model.runtime_params.start_date,
             end_date=self.model.runtime_params.end_date,
             valid_start_date=self.model.valid_start_date,
             valid_end_date=self.model.valid_end_date,
             marbl_codebase=(
-                MARBLAdapter(self.model).convert() if self.model.code.marbl else None
+                MARBLAdapter(self.model).adapt() if self.model.code.marbl else None
             ),
-            model_grid=GridAdapter(self.model).convert(),
-            initial_conditions=ConditionAdapter(self.model).convert(),
-            tidal_forcing=TidalForcingAdapter(self.model).convert(),
-            river_forcing=RiverForcingAdapter(self.model).convert(),
+            model_grid=GridAdapter(self.model).adapt(),
+            initial_conditions=ConditionAdapter(self.model).adapt(),
+            tidal_forcing=TidalForcingAdapter(self.model).adapt(),
+            river_forcing=RiverForcingAdapter(self.model).adapt(),
             boundary_forcing=[
                 # WARNING - current schema does not take into account a forcing LIST
-                BoundaryForcingAdapter(self.model).convert(),
+                BoundaryForcingAdapter(self.model).adapt(),
             ],
             surface_forcing=[
                 # WARNING - current schema does not take into account a forcing LIST
-                SurfaceForcingAdapter(self.model).convert(),
+                SurfaceForcingAdapter(self.model).adapt(),
             ],
         )
