@@ -1,0 +1,38 @@
+ARG ACCT="C-Worthy"
+ARG IMG_BUILDBASE="$ACCT/cstar-buildbase:latest"
+# slurm-job-id for simulating roms started by podman-hpc
+
+FROM $IMG_BUILDBASE as final
+
+ARG INSTALL_BASE_DIR="/opt"
+ARG PROFILE_DIR="/etc/profile.d"
+ENV SHIM="1"
+ENV CSTAR_ORCHESTRATOR_URI="not-set"
+ENV SLURM_JOB_ID="not-set"
+ENV SLURM_STEP_ID="mock-step-id"
+
+ARG CSTAR_SHIM_DIR="$INSTALL_BASE_DIR/shim1/bin"
+ENV CSTAR_SHIM_BIN="$INSTALL_BASE_DIR/shim$SHIM/bin"
+
+RUN apt-get update && \
+    apt-get install -y curl
+
+WORKDIR "$CSTAR_SHIM_DIR"
+COPY mpirun ./mpirun
+RUN chmod +x ./mpirun
+
+WORKDIR "$INSTALL_BASE_DIR"
+COPY mockroms.sh ./mockroms.sh
+RUN chmod +x ./mockroms.sh
+
+RUN mkdir -p /opt/fauxmpi/bin && \
+    echo "printf 'the faux/real mpirun was called'" >> /opt/fauxmpi/bin/mpirun && \
+    chmod +x /opt/fauxmpi/bin/mpirun && \
+    echo 'export PATH=/opt/shim$SHIM/bin:$PATH' >> /etc/profile.d/mockroms.sh
+
+# When the shim is not enabled w/SHIM=1 the shimmed mpirun won't be on the path
+ENV PATH="/opt/fauxmpi/bin:$PATH"
+
+CMD = []
+# This is a roms call that should get redirected to the orchestrator to run.
+ENTRYPOINT = ["/entrypoint.sh"]

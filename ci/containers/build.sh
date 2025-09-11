@@ -163,8 +163,10 @@ perform_build() {
             $RUNTIME_ENGINE migrate "$item"
         fi
 
-        log_info "Publishing: $REPO_URI/$item"
-        $RUNTIME_ENGINE push "$item"
+        if [ -z "$NOPUB" ]; then
+            log_info "Publishing: $REPO_URI/$item"
+            $RUNTIME_ENGINE push "$item"
+        fi
     done
 
     log_info "Build complete. Run with: $RUNTIME_ENGINE run -i -t --rm $TAG_V bash"
