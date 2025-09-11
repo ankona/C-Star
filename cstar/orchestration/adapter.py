@@ -1,4 +1,3 @@
-import abc
 import typing as t
 
 from pydantic import BaseModel
@@ -19,24 +18,33 @@ from cstar.roms.input_dataset import (
 )
 
 _Tin = t.TypeVar("_Tin", bound=BaseModel)
-_Tout = t.TypeVar("_Tout")
+_Tout_co = t.TypeVar("_Tout_co", covariant=True)
 
 # TODO: consider doing a straight up JSON conversion of the model to a format
 # that would deserialize into the target "native" object instead of this?
 
 
-class ModelAdapter(t.Generic[_Tin, _Tout], abc.ABC):
+class ModelAdapter(t.Generic[_Tin, _Tout_co], t.Protocol):
+    """Contract exposing a mechanism to adapt a source model to a target type."""
+
     model: _Tin
 
     def __init__(self, model: _Tin) -> None:
         self.model = model
 
-    @abc.abstractmethod
-    def adapt(self) -> _Tout: ...
+    def adapt(self) -> _Tout_co:
+        """Adapt the source model to the target output type.
+
+        Returns
+        -------
+        _Tout
+            The instance converted from the source model
+        """
+        ...
 
 
 class DiscretizationAdapter(ModelAdapter[models.Blueprint, ROMSDiscretization]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSDiscretization from a blueprint model."""
 
     # def __init__(self, model: models.Blueprint) -> None:
     #     self.model = model
@@ -51,7 +59,7 @@ class DiscretizationAdapter(ModelAdapter[models.Blueprint, ROMSDiscretization]):
 
 
 class AddtlCodeAdapter(ModelAdapter[models.Blueprint, AdditionalCode]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a AdditionalCode from a blueprint model."""
 
     def __init__(self, model: models.Blueprint, key: str) -> None:
         super().__init__(model)
@@ -70,7 +78,7 @@ class AddtlCodeAdapter(ModelAdapter[models.Blueprint, AdditionalCode]):
 
 
 class CodebaseAdapter(ModelAdapter[models.Blueprint, ROMSExternalCodeBase]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSExternalCodeBase from a blueprint model."""
 
     @t.override
     def adapt(self) -> ROMSExternalCodeBase:
@@ -81,7 +89,7 @@ class CodebaseAdapter(ModelAdapter[models.Blueprint, ROMSExternalCodeBase]):
 
 
 class MARBLAdapter(ModelAdapter[models.Blueprint, MARBLExternalCodeBase]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a MARBLExternalCodeBase from a blueprint model."""
 
     @t.override
     def adapt(self) -> MARBLExternalCodeBase:
@@ -97,14 +105,10 @@ class MARBLAdapter(ModelAdapter[models.Blueprint, MARBLExternalCodeBase]):
 
 
 class GridAdapter(ModelAdapter[models.Blueprint, ROMSModelGrid]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSModelGrid from a blueprint model."""
 
     @t.override
     def adapt(self) -> ROMSModelGrid:
-        if self.model.code.marbl is None:
-            msg = "MARBL codebase not found"
-            raise RuntimeError(msg)
-
         return ROMSModelGrid(
             location=str(self.model.runtime_params.output_dir / "model_grid"),
             # WARNING - path is not valid...
@@ -115,7 +119,7 @@ class GridAdapter(ModelAdapter[models.Blueprint, ROMSModelGrid]):
 
 
 class ConditionAdapter(ModelAdapter[models.Blueprint, ROMSInitialConditions]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSInitialCondition from a blueprint model."""
 
     @t.override
     def adapt(self) -> ROMSInitialConditions:
@@ -130,7 +134,7 @@ class ConditionAdapter(ModelAdapter[models.Blueprint, ROMSInitialConditions]):
 
 
 class TidalForcingAdapter(ModelAdapter[models.Blueprint, ROMSTidalForcing]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSTidalForcing from a blueprint model."""
 
     # def __init__(self, model: models.Blueprint, key: str) -> None:
     #     super().__init__(model)
@@ -151,7 +155,7 @@ class TidalForcingAdapter(ModelAdapter[models.Blueprint, ROMSTidalForcing]):
 
 
 class RiverForcingAdapter(ModelAdapter[models.Blueprint, ROMSRiverForcing]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSRiverForcing from a blueprint model."""
 
     # def __init__(self, model: models.Blueprint, key: str) -> None:
     #     super().__init__(model)
@@ -172,7 +176,7 @@ class RiverForcingAdapter(ModelAdapter[models.Blueprint, ROMSRiverForcing]):
 
 
 class BoundaryForcingAdapter(ModelAdapter[models.Blueprint, ROMSBoundaryForcing]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSBoundaryForcing from a blueprint model."""
 
     # def __init__(self, model: models.Blueprint, key: str) -> None:
     #     super().__init__(model)
@@ -193,7 +197,7 @@ class BoundaryForcingAdapter(ModelAdapter[models.Blueprint, ROMSBoundaryForcing]
 
 
 class SurfaceForcingAdapter(ModelAdapter[models.Blueprint, ROMSSurfaceForcing]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSSurfaceForcing from a blueprint model."""
 
     # def __init__(self, model: models.Blueprint, key: str) -> None:
     #     super().__init__(model)
@@ -214,7 +218,7 @@ class SurfaceForcingAdapter(ModelAdapter[models.Blueprint, ROMSSurfaceForcing]):
 
 
 class BlueprintAdapter(ModelAdapter[models.Blueprint, ROMSSimulation]):
-    """Convert a blueprint model to a concrete instance."""
+    """Create a ROMSSimulation from a blueprint model."""
 
     def __init__(self, model: models.Blueprint) -> None:
         self.model = model
