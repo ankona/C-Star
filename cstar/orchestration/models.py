@@ -12,6 +12,7 @@ from pydantic import (
     HttpUrl,
     PastDatetime,
     PlainSerializer,
+    PositiveInt,
     StringConstraints,
     ValidationInfo,
     WithJsonSchema,
@@ -280,11 +281,11 @@ class PartitioningParameterSet(ParameterSet):
     """
 
     # todo: adding defaults to consume a 128 core node. consider removing.
-    n_procs_x: int = 16
+    n_procs_x: PositiveInt = 16
     """Number of processes used to subdivide the domain on the x-axis."""
 
     # todo: adding defaults to consume a 128 core node. consider removing.
-    n_procs_y: int = 8
+    n_procs_y: PositiveInt = 8
     """Number of processes used to subdivide the domain on the y-axis."""
 
 
