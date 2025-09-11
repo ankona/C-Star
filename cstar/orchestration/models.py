@@ -223,7 +223,7 @@ class RuntimeParameterSet(ParameterSet):
     start_date: PastDatetime = datetime(1, 1, 1, tzinfo=timezone.utc)
     """Start of data time range to be used in the simulation."""
 
-    end_date: PastDatetime = datetime(1, 1, 1, tzinfo=timezone.utc)
+    end_date: PastDatetime = datetime(2, 1, 1, tzinfo=timezone.utc)
     """End of data time range to be used in the simulation."""
 
     # restart_freq: str
