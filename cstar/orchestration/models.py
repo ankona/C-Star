@@ -149,6 +149,8 @@ class ROMSCompositeCodeRepository(BaseModel):
 class BlueprintState(StrEnum):
     """The allowed states for a work plan."""
 
+    # TODO: determine if unique states for Bp/WP are being considered, if not. discard.
+
     Draft = auto()
     """A blueprint that has not been validated."""
 
