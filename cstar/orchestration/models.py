@@ -364,7 +364,7 @@ class Step(BaseModel):
     """The user-friendly name of the step."""
 
     application: RequiredString
-    """An optional list of external step names that must execute prior to this step."""
+    """The user-friendly name of the application executed in the step."""
 
     blueprint: FilePath
     """The blueprint that will be executed in this step."""
@@ -373,14 +373,17 @@ class Step(BaseModel):
         default_factory=list,
         frozen=True,
     )
-    """A collection of key-value pairs specifying overrides for blueprint attributes."""
+    """An optional list of external step names that must execute prior to this step.
+
+    Cycles are not permitted.
+    """
 
     blueprint_overrides: KeyValueStore = Field(
         default_factory=dict,
         validate_default=False,
         frozen=True,
     )
-    """The user-friendly name of the application executed in the step."""
+    """A collection of key-value pairs specifying overrides for blueprint attributes."""
 
     compute_overrides: KeyValueStore = Field(
         default_factory=dict,
