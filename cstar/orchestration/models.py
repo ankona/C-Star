@@ -244,7 +244,7 @@ class RuntimeParameterSet(ParameterSet):
     of additional disk usage and compute used for checkpointing.
     """
 
-    output_dir: TargetDirectoryPath
+    output_dir: TargetDirectoryPath = Path()
     """Directory where runtime outputs will be stored."""
 
     @field_validator("checkpoint_frequency", mode="after")
