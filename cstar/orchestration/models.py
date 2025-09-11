@@ -303,10 +303,10 @@ class Blueprint(BaseModel):
     """The current validation status of the blueprint."""
 
     valid_start_date: PastDatetime
-    """Beginning of the time range of the available data."""
+    """Beginning of the time range for the available data."""
 
     valid_end_date: PastDatetime
-    """End of the time range of the available data."""
+    """End of the time range for the available data."""
 
     code: ROMSCompositeCodeRepository
     """Code repositories used to build, configure, and execute the ROMS simulation."""
