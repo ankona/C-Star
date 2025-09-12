@@ -405,6 +405,17 @@ class Step(BaseModel):
     )
     """A collection of key-value pairs specifying overrides for workflow attributes."""
 
+    # @computed_field
+    # @property
+    # def slug(self) -> str:
+    #     """Return a URL safe version of the step name."""
+    #     return re.sub(r"\s+", "-", self.name.strip())
+
+    # @computed_field
+    # @property
+    # def depends_on_slugs(self) -> t.Sequence[str]:
+    #     return [re.sub(r"\s+", "-", step.strip()) for step in self.depends_on]
+
 
 class WorkPlan(BaseModel):
     """A collection of executable steps and the associated configuration to run them."""
@@ -455,3 +466,15 @@ class WorkPlan(BaseModel):
 
         """
         return deepcopy(value)
+
+    @model_validator(mode="after")
+    def _model_validator(self) -> "WorkPlan":
+        name_counter = t.Counter(step.name for step in self.steps)
+        most_common = name_counter.most_common(1)
+        name, count = most_common[0]
+
+        if count > 1:
+            msg = f"Step names must be unique. Found {count} steps with name {name}"
+            raise ValueError(msg)
+
+        return self
