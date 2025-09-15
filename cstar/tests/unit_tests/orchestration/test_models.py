@@ -9,7 +9,7 @@ import pytest
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from cstar.orchestration.models import KeyValueStore, Step, WorkPlan, WorkPlanState
+from cstar.orchestration.models import KeyValueStore, Step, Workplan, WorkplanState
 
 
 def model_to_yaml(model: BaseModel) -> str:
@@ -35,14 +35,14 @@ def model_to_yaml(model: BaseModel) -> str:
 
     def workplanstate_representer(
         dumper: yaml.Dumper,
-        data: WorkPlanState,
+        data: WorkplanState,
     ) -> yaml.ScalarNode:
         return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
 
     dumper = yaml.Dumper
 
     dumper.add_representer(pathlib.PosixPath, path_representer)
-    dumper.add_representer(WorkPlanState, workplanstate_representer)
+    dumper.add_representer(WorkplanState, workplanstate_representer)
 
     return yaml.dump(dumped, sort_keys=False)
 
@@ -636,7 +636,7 @@ def test_workplan_defaults(
     name = f"test-plan-{uuid.uuid4()}"
     description = f"test-desc-{uuid.uuid4()}"
 
-    plan = WorkPlan(
+    plan = Workplan(
         name=name,
         description=description,
         steps=steps,
@@ -646,7 +646,7 @@ def test_workplan_defaults(
     assert plan.description == description
     assert len(plan.steps) == len(steps)
     assert {step.name for step in plan.steps} == {step.name for step in steps}
-    assert plan.state == WorkPlanState.Draft
+    assert plan.state == WorkplanState.Draft
 
     assert not plan.compute_environment
     assert "foo" not in plan.compute_environment  # ensure non-null
@@ -679,7 +679,7 @@ def test_workplan_name_validation(
     description = f"test-desc-{uuid.uuid4()}"
 
     with pytest.raises(ValidationError) as error:
-        _ = WorkPlan(
+        _ = Workplan(
             name=invalid_value,  # type: ignore[reportArgumentType]
             description=description,
             steps=steps,
@@ -713,7 +713,7 @@ def test_workplan_description_validation(
     name = f"test-plan-{uuid.uuid4()}"
 
     with pytest.raises(ValidationError) as error:
-        _ = WorkPlan(
+        _ = Workplan(
             name=name,
             description=invalid_value,  # type: ignore[reportArgumentType]
             steps=steps,
@@ -737,11 +737,11 @@ def test_workplan_state_validation(
     description = f"test-desc-{uuid.uuid4()}"
 
     with pytest.raises(ValidationError) as error:
-        _ = WorkPlan(
+        _ = Workplan(
             name=name,
             description=description,
             steps=steps,
-            state=f"{WorkPlanState.Draft}y",  # type: ignore[reportArgumentType]
+            state=f"{WorkplanState.Draft}y",  # type: ignore[reportArgumentType]
         )
 
     assert "state" in str(error)
@@ -767,7 +767,7 @@ def test_workplan_steps_validation(invalid_value: list | None) -> None:
     description = f"test-desc-{uuid.uuid4()}"
 
     with pytest.raises(ValidationError) as error:
-        _ = WorkPlan(
+        _ = Workplan(
             name=name,
             description=description,
             steps=invalid_value,  # type: ignore[reportArgumentType]
@@ -799,7 +799,7 @@ def test_workplan_compute_environment(
         A generator function to produce minimally valid test steps
     """
     steps = list(gen_fake_steps(5))
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=steps,
@@ -821,7 +821,7 @@ def test_json_serialize(
 
     """
     fake_steps = list(gen_fake_steps(1))
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=fake_steps,
@@ -856,7 +856,7 @@ def test_yaml_serialize(
         Temporarily write a yaml document to disk for manual test review of failures.
 
     """
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=list(gen_fake_steps(1)),
@@ -896,7 +896,7 @@ def test_yaml_deserialize(
         Temporarily write a yaml document to disk to ensure deserialization.
 
     """
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=list(gen_fake_steps(1)),
@@ -910,7 +910,7 @@ def test_yaml_deserialize(
         fp.write(yaml_doc)
 
     written = yaml_path.read_text()
-    plan2 = yaml_to_model(written, WorkPlan)
+    plan2 = yaml_to_model(written, Workplan)
 
     assert plan == plan2
 
@@ -918,7 +918,7 @@ def test_yaml_deserialize(
 def test_workplan_step_copy(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
-    """Verify that the WorkPlan deep-copies steps.
+    """Verify that the Workplan deep-copies steps.
 
     Parameters
     ----------
@@ -927,7 +927,7 @@ def test_workplan_step_copy(
 
     """
     steps = list(gen_fake_steps(2))
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=steps,
@@ -954,7 +954,7 @@ def test_workplan_step_copy(
 def test_workplan_step_set(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
-    """Verify that the WorkPlan does not allow the steps list reference to change.
+    """Verify that the Workplan does not allow the steps list reference to change.
 
     Parameters
     ----------
@@ -963,7 +963,7 @@ def test_workplan_step_set(
 
     """
     steps = list(gen_fake_steps(2))
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=list(gen_fake_steps(1)),
@@ -978,7 +978,7 @@ def test_workplan_step_set(
 def test_workplan_runtimevars_copy(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
-    """Verify that the WorkPlan copy of runtime_vars is distinct
+    """Verify that the Workplan copy of runtime_vars is distinct
 
     Parameters
     ----------
@@ -988,7 +988,7 @@ def test_workplan_runtimevars_copy(
     """
     runtime_vars = ["a", "b", "c"]
 
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=list(gen_fake_steps(2)),
@@ -1013,7 +1013,7 @@ def test_workplan_runtimevars_copy(
 def test_workplan_runtimevars_set(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
-    """Verify that the WorkPlan does not allow the runtime_vars list reference to change.
+    """Verify that the Workplan does not allow the runtime_vars list reference to change.
 
     Parameters
     ----------
@@ -1023,7 +1023,7 @@ def test_workplan_runtimevars_set(
     """
     runtime_vars = ["a", "b", "c"]
 
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=list(gen_fake_steps(2)),
@@ -1038,7 +1038,7 @@ def test_workplan_runtimevars_set(
 def test_workplan_computeenv_copy(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
-    """Verify that the WorkPlan copy of compute_environment is distinct
+    """Verify that the Workplan copy of compute_environment is distinct
 
     Parameters
     ----------
@@ -1048,7 +1048,7 @@ def test_workplan_computeenv_copy(
     """
     compute_env = {"a": 1, "b": 2, "c": "xyz"}
 
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=list(gen_fake_steps(2)),
@@ -1073,7 +1073,7 @@ def test_workplan_computeenv_copy(
 def test_workplan_computeenv_set(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
-    """Verify that the WorkPlan does not allow the compute env reference to change.
+    """Verify that the Workplan does not allow the compute env reference to change.
 
     Parameters
     ----------
@@ -1083,7 +1083,7 @@ def test_workplan_computeenv_set(
     """
     compute_env: KeyValueStore = {"a": 1, "b": 2, "c": "xyz"}
 
-    plan = WorkPlan(
+    plan = Workplan(
         name="test-plan",
         description="test-description",
         steps=list(gen_fake_steps(2)),

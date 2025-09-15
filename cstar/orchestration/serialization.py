@@ -20,7 +20,7 @@ class PersistenceMode(enum.StrEnum):
 def _bp_to_sim(model: models.Blueprint) -> ROMSSimulation | None: ...
 
 
-def _wp_to_sim(model: models.WorkPlan) -> ROMSSimulation | None:
+def _wp_to_sim(model: models.Workplan) -> ROMSSimulation | None:
     """This doesn't make sense unless the mapping functions return an iterable
     that can be used to iterate over all the underlying simulations...
 
@@ -43,15 +43,15 @@ def _read_yaml(path: Path, klass: type[_T]) -> _T:
 
 
 adapter_map: dict[
-    type[models.Blueprint | models.WorkPlan],
+    type[models.Blueprint | models.Workplan],
     t.Callable[[models.Blueprint], ROMSSimulation | None]
-    | t.Callable[[models.WorkPlan], ROMSSimulation | None],
+    | t.Callable[[models.Workplan], ROMSSimulation | None],
 ] = {
     models.Blueprint: _bp_to_sim,
-    models.WorkPlan: _wp_to_sim,
+    models.Workplan: _wp_to_sim,
 }
 
-_DT = t.TypeVar("_DT", models.Blueprint, models.WorkPlan)
+_DT = t.TypeVar("_DT", models.Blueprint, models.Workplan)
 
 
 def deserialize(
@@ -106,7 +106,7 @@ def deserialize(
         raise ValueError(msg)
 
     # TODO (ankona, http://none): doing this generic is kind of a kludge - In the case of a single simulation,
-    # e.g. blueprint, I need to return a single item. When using a WorkPlan, this will
+    # e.g. blueprint, I need to return a single item. When using a Workplan, this will
     # should return more than one.
     #
     # TODONT: Do NOT build a DAG at this level? again, info loss on conversion?

@@ -340,7 +340,7 @@ class Blueprint(BaseModel):
         return self
 
 
-class WorkPlanState(StrEnum):
+class WorkplanState(StrEnum):
     """The allowed states for a work plan."""
 
     Draft = auto()
@@ -417,7 +417,7 @@ class Step(BaseModel):
     #     return [re.sub(r"\s+", "-", step.strip()) for step in self.depends_on]
 
 
-class WorkPlan(BaseModel):
+class Workplan(BaseModel):
     """A collection of executable steps and the associated configuration to run them."""
 
     name: RequiredString
@@ -433,7 +433,7 @@ class WorkPlan(BaseModel):
     )
     """The steps to be executed by the workplan."""
 
-    state: WorkPlanState = WorkPlanState.Draft
+    state: WorkplanState = WorkplanState.Draft
     """The current validation status of the workplan."""
 
     compute_environment: KeyValueStore = Field(
@@ -468,7 +468,7 @@ class WorkPlan(BaseModel):
         return deepcopy(value)
 
     @model_validator(mode="after")
-    def _model_validator(self) -> "WorkPlan":
+    def _model_validator(self) -> "Workplan":
         name_counter = t.Counter(step.name for step in self.steps)
         most_common = name_counter.most_common(1)
         name, count = most_common[0]
