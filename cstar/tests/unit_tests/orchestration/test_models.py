@@ -169,7 +169,7 @@ def test_step_name_validation(
 
     with pytest.raises(ValidationError) as error:
         _ = Step(
-            name=invalid_value,  # type: ignore[reportArgumentType]
+            name=invalid_value,  # type: ignore[arg-type]
             application=app_name,
             blueprint=fake_blueprint_path,
         )
@@ -205,7 +205,7 @@ def test_step_application_validation(
     with pytest.raises(ValidationError) as error:
         _ = Step(
             name=step_name,
-            application=invalid_value,  # type: ignore[reportArgumentType]
+            application=invalid_value,  # type: ignore[arg-type]
             blueprint=fake_blueprint_path,
         )
 
@@ -234,7 +234,7 @@ def test_step_path_validation(invalid_value: Path | None) -> None:
         _ = Step(
             name=step_name,
             application=app_name,
-            blueprint=invalid_value,  # type: ignore[reportArgumentType]
+            blueprint=invalid_value,  # type: ignore[arg-type]
         )
 
     assert "blueprint" in str(error)
@@ -270,7 +270,7 @@ def test_step_dependson_validation(
             name="test-step",
             application="test-app",
             blueprint=fake_blueprint_path,
-            depends_on=invalid_value,  # type: ignore[reportUndefinedVariable]
+            depends_on=invalid_value,  # type: ignore[arg-type]
         )
 
     assert "depends_on" in str(error)
@@ -465,7 +465,7 @@ def test_step_compute_overrides_set(
         name=step_name,
         application=app_name,
         blueprint=fake_blueprint_path,
-        compute_overrides=overrides,
+        compute_overrides=overrides,  # type: ignore[arg-type]
     )
 
     new_values: KeyValueStore = {"CSTAR_XYZ": 42, "CSTAR_PQR": "xxx"}
@@ -520,7 +520,7 @@ def test_step_workflow_overrides_set(
         A path to a file that meets minimum expectations (it exists).
 
     """
-    overrides = {"a": 1, "b": 2, "c": "xyz"}
+    overrides: dict[str, str | int] = {"a": 1, "b": 2, "c": "xyz"}
 
     step_name = f"test-step-{uuid.uuid4()}"
     app_name = f"test-app-{uuid.uuid4()}"
@@ -562,7 +562,7 @@ def test_step_all_overrides_copy(
         The name of the attribute on the Step object that should be tested.
 
     """
-    overrides = {"a": 1, "b": 2, "c": "xyz"}
+    overrides: dict[str, str | int] = {"a": 1, "b": 2, "c": "xyz"}
 
     step_name = f"test-step-{uuid.uuid4()}"
     app_name = f"test-app-{uuid.uuid4()}"
@@ -571,12 +571,12 @@ def test_step_all_overrides_copy(
         application=app_name,
         blueprint=fake_blueprint_path,
         **{
-            dict_prop: overrides,
-        },  # type: ignore[reportArgumentType]
+            dict_prop: overrides,  # type: ignore[arg-type]
+        },
     )
 
     og_env = dict(**overrides)
-    new_values = {"CSTAR_XYZ": 42, "CSTAR_PQR": "xxx"}
+    new_values: dict[str, str | int] = {"CSTAR_XYZ": 42, "CSTAR_PQR": "xxx"}
 
     overrides.update(new_values)
 
@@ -602,7 +602,7 @@ def test_step_blueprint_overrides_set(
         A path to a file that meets minimum expectations (it exists).
 
     """
-    overrides = {"a": 1, "b": 2, "c": "xyz"}
+    overrides: dict[str, str | int] = {"a": 1, "b": 2, "c": "xyz"}
 
     step_name = f"test-step-{uuid.uuid4()}"
     app_name = f"test-app-{uuid.uuid4()}"
@@ -680,7 +680,7 @@ def test_workplan_name_validation(
 
     with pytest.raises(ValidationError) as error:
         _ = Workplan(
-            name=invalid_value,  # type: ignore[reportArgumentType]
+            name=invalid_value,  # type: ignore[arg-type]
             description=description,
             steps=steps,
         )
@@ -715,7 +715,7 @@ def test_workplan_description_validation(
     with pytest.raises(ValidationError) as error:
         _ = Workplan(
             name=name,
-            description=invalid_value,  # type: ignore[reportArgumentType]
+            description=invalid_value,  # type: ignore[arg-type]
             steps=steps,
         )
 
@@ -741,7 +741,7 @@ def test_workplan_state_validation(
             name=name,
             description=description,
             steps=steps,
-            state=f"{WorkplanState.Draft}y",  # type: ignore[reportArgumentType]
+            state=f"{WorkplanState.Draft}y",  # type: ignore[arg-type]
         )
 
     assert "state" in str(error)
@@ -770,7 +770,7 @@ def test_workplan_steps_validation(invalid_value: list | None) -> None:
         _ = Workplan(
             name=name,
             description=description,
-            steps=invalid_value,  # type: ignore[reportArgumentType]
+            steps=invalid_value,  # type: ignore[arg-type]
         )
 
     assert "steps" in str(error)
@@ -809,7 +809,7 @@ def test_workplan_compute_environment(
     assert plan.compute_environment == compute_env
 
 
-def test_json_serialize(
+def test_workplan_json_serialize(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
     """Verify that the model is json serializable.
@@ -842,7 +842,7 @@ def test_json_serialize(
     assert "workflow_overrides" in json
 
 
-def test_yaml_serialize(
+def test_workplan_yaml_serialize(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
     tmp_path: pathlib.Path,
 ) -> None:
@@ -882,7 +882,7 @@ def test_yaml_serialize(
     assert "workflow_overrides" in yaml_doc
 
 
-def test_yaml_deserialize(
+def test_workplan_yaml_deserialize(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
     tmp_path: pathlib.Path,
 ) -> None:
@@ -1046,7 +1046,7 @@ def test_workplan_computeenv_copy(
         A generator function to produce minimally valid test steps
 
     """
-    compute_env = {"a": 1, "b": 2, "c": "xyz"}
+    compute_env: dict[str, str | int] = {"a": 1, "b": 2, "c": "xyz"}
 
     plan = Workplan(
         name="test-plan",
@@ -1056,7 +1056,7 @@ def test_workplan_computeenv_copy(
     )
 
     og_env = dict(**compute_env)
-    new_values = {"CSTAR_XYZ": 42, "CSTAR_PQR": "xxx"}
+    new_values: dict[str, str | int] = {"CSTAR_XYZ": 42, "CSTAR_PQR": "xxx"}
 
     compute_env.update(new_values)
 
