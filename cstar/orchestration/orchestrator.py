@@ -1,12 +1,12 @@
 import re
 import time
 import typing as t
+from enum import IntEnum
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import networkx as nx
 from pydantic import BaseModel, Field
-from zmq import IntEnum
 
 from cstar.orchestration.models import Step, Workplan
 
@@ -121,7 +121,7 @@ class Launcher:
             (
                 self.tasks[task.name].status
                 if task.name in self.tasks
-                else t.cast("TaskStatus", TaskStatus.Unknown)
+                else TaskStatus.Unknown
             )
             for task in items
         ]
