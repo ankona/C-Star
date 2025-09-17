@@ -73,9 +73,38 @@ def yaml_to_model(yaml_doc: str, cls: type[_T]) -> _T:
 
 
 @pytest.fixture
-def serialize_model() -> t.Callable[[BaseModel, Path], str]:
-    def _inner(model: BaseModel, path: Path) -> str:
+def serialize_blueprint(
+    blueprint_schema_path: Path,
+) -> t.Callable[[Blueprint, Path], str]:
+    def _inner(model: Blueprint, path: Path) -> str:
         yaml_doc = model_to_yaml(model)
+
+        schema_directive = (
+            f"# yaml-language-server: $schema={blueprint_schema_path.as_posix()}"
+        )
+
+        yaml_doc = f"{schema_directive}\n{yaml_doc}"
+
+        print(f"Writing test yaml document to: {path}")
+        path.write_text(yaml_doc, encoding="utf-8")
+
+        return yaml_doc
+
+    return _inner
+
+
+@pytest.fixture
+def serialize_workplan(
+    workplan_schema_path: Path,
+) -> t.Callable[[Workplan, Path], str]:
+    def _inner(model: Workplan, path: Path) -> str:
+        yaml_doc = model_to_yaml(model)
+
+        schema_directive = (
+            f"# yaml-language-server: $schema={workplan_schema_path.as_posix()}"
+        )
+
+        yaml_doc = f"{schema_directive}\n{yaml_doc}"
 
         print(f"Writing test yaml document to: {path}")
         path.write_text(yaml_doc, encoding="utf-8")
@@ -143,6 +172,18 @@ def load_workplan() -> t.Callable[[Path], Workplan]:
         """Deserialize a yaml file and return the resulting Workplan."""
         yaml_doc = path.read_text(encoding="utf-8")
         return yaml_to_model(yaml_doc, Workplan)
+
+    return _data_loader
+
+
+@pytest.fixture
+def load_blueprint() -> t.Callable[[Path], Blueprint]:
+    """Create a function to load workplan yaml."""
+
+    def _data_loader(path: Path) -> Blueprint:
+        """Deserialize a yaml file and return the resulting Workplan."""
+        yaml_doc = path.read_text(encoding="utf-8")
+        return yaml_to_model(yaml_doc, Blueprint)
 
     return _data_loader
 

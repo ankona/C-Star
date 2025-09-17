@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 
 import networkx as nx
 import pytest
-from pydantic import BaseModel
 
 from cstar.orchestration.models import (
     Application,
@@ -79,7 +78,7 @@ def test_serial_planner(tmp_path: Path, test_graph: nx.DiGraph) -> None:
 @pytest.mark.skip(reason="Used for development purposes, only")
 def test_make_a_minimum_blueprint_yaml(
     tmp_path: Path,
-    serialize_model: t.Callable[[BaseModel, Path], str],
+    serialize_blueprint: t.Callable[[Blueprint, Path], str],
 ) -> None:
     """Use a unit test to create a blueprint YAML doc instead of doing so by hand..."""
     bp_path = tmp_path / "blueprint.yml"
@@ -119,8 +118,7 @@ def test_make_a_minimum_blueprint_yaml(
         grid=Grid(min_latitude=0, max_latitude=10, min_longitude=0, max_longitude=10),
     )
 
-    bp_yaml = serialize_model(blueprint, bp_path)
-    assert bp_yaml.strip()
+    bp_yaml = serialize_blueprint(blueprint, bp_path)
 
-    bp_path.write_text(bp_yaml)
+    assert bp_yaml.strip()
     assert bp_path.exists()

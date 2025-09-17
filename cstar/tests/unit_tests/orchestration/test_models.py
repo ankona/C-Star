@@ -746,7 +746,7 @@ def test_workplan_json_serialize(
 def test_workplan_yaml_serialize(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
     tmp_path: pathlib.Path,
-    serialize_model: t.Callable[[BaseModel, Path], str],
+    serialize_workplan: t.Callable[[Workplan, Path], str],
 ) -> None:
     """Verify that the model serializes to YAML without errors.
 
@@ -770,7 +770,7 @@ def test_workplan_yaml_serialize(
         fp.write(json.dumps(schema))
 
     yaml_path = tmp_path / "test.yaml"
-    yaml_doc = serialize_model(plan, yaml_path)
+    yaml_doc = serialize_workplan(plan, yaml_path)
 
     assert "name" in yaml_doc
     assert "description" in yaml_doc
@@ -788,7 +788,7 @@ def test_workplan_yaml_serialize(
 def test_workplan_yaml_deserialize(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
     tmp_path: pathlib.Path,
-    serialize_model: t.Callable[[BaseModel, Path], str],
+    serialize_workplan: t.Callable[[BaseModel, Path], str],
     deserialize_model: t.Callable[[Path, type], BaseModel],
 ) -> None:
     """Verify that the model deserializes from YAML without errors.
@@ -808,7 +808,7 @@ def test_workplan_yaml_deserialize(
     )
 
     yaml_path = tmp_path / "test.yaml"
-    _ = serialize_model(plan, yaml_path)
+    _ = serialize_workplan(plan, yaml_path)
 
     plan2 = t.cast("Workplan", deserialize_model(yaml_path, Workplan))
 
