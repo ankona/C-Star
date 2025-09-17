@@ -28,7 +28,7 @@ RequiredString: t.TypeAlias = t.Annotated[
 ]
 """A non-empty string with no leading or trailing whitespace."""
 
-KeyValueStore: t.TypeAlias = dict[str, str | int]
+KeyValueStore: t.TypeAlias = dict[str, str | float | list[str] | list[float]]
 """A collection of user-defined key-value pairs."""
 
 TargetDirectoryPath = t.Annotated[
@@ -166,6 +166,8 @@ class Application(StrEnum):
     """A UCLA-ROMS simulation that will not make use of biogeochemical data."""
     ROMS_MARBL = auto()
     """A UCLA-ROMS simulation coupled with a MARBL biogeochemical component."""
+    HOSTNAME = auto()
+    """A call to the hostname executable to simplify testing."""
 
 
 class ParameterSet(BaseModel):
@@ -467,14 +469,50 @@ class Workplan(BaseModel):
         """
         return deepcopy(value)
 
-    @model_validator(mode="after")
-    def _model_validator(self) -> "Workplan":
-        name_counter = t.Counter(step.name for step in self.steps)
-        most_common = name_counter.most_common(1)
-        name, count = most_common[0]
+    @field_validator("runtime_vars", mode="after")
+    @classmethod
+    def _check_runtime_vars(cls, value: list[str]) -> list[str]:
+        """Ensure no duplicate runtime vars are passed.
 
-        if count > 1:
-            msg = f"Step names must be unique. Found {count} steps with name {name}"
+        Parameters
+        ----------
+        value : list[str]
+            Variable names used at runtime
+
+        """
+        var_counter = t.Counter(value)
+        most_common = var_counter.most_common(1)
+        var_name, var_count = most_common[0] if most_common else ("", 0)
+
+        if var_count > 1:
+            msg = f"Duplicate runtime variables provided: {var_count} copies of {var_name}"
             raise ValueError(msg)
 
+        return value
+
+    @field_validator("steps", mode="after")
+    @classmethod
+    def _check_steps(cls, value: list[Step]) -> list[Step]:
+        """Xxx.
+
+        Parameters
+        ----------
+        value : list[Step]
+            Variable names used at runtime
+
+        """
+        name_counter = t.Counter(step.name for step in value)
+        most_common = name_counter.most_common(1)
+        step_name, step_count = most_common[0]
+        step_name, step_count = most_common[0] if most_common else ("", 0)
+
+        if step_count > 1:
+            msg = f"Step names must be unique. Found {step_count} steps with name {step_name}"
+            raise ValueError(msg)
+
+        return value
+
+    @model_validator(mode="after")
+    def _model_validator(self) -> "Workplan":
+        """Validate attribute relationships."""
         return self

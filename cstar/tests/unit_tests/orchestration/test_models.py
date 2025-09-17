@@ -1,114 +1,15 @@
 # ruff: noqa: S101
 
+import json
 import pathlib
 import typing as t
 import uuid
 from pathlib import Path
 
 import pytest
-import yaml
 from pydantic import BaseModel, ValidationError
 
 from cstar.orchestration.models import KeyValueStore, Step, Workplan, WorkplanState
-
-
-def model_to_yaml(model: BaseModel) -> str:
-    """Serialize a model to yaml.
-
-    Parameters
-    ----------
-    model : BaseModel
-        The model to be serialized
-
-    Returns
-    -------
-    str
-        The serialized model
-    """
-    dumped = model.model_dump()
-
-    def path_representer(
-        dumper: yaml.Dumper,
-        data: pathlib.PosixPath,
-    ) -> yaml.ScalarNode:
-        return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
-
-    def workplanstate_representer(
-        dumper: yaml.Dumper,
-        data: WorkplanState,
-    ) -> yaml.ScalarNode:
-        return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
-
-    dumper = yaml.Dumper
-
-    dumper.add_representer(pathlib.PosixPath, path_representer)
-    dumper.add_representer(WorkplanState, workplanstate_representer)
-
-    return yaml.dump(dumped, sort_keys=False)
-
-
-_T = t.TypeVar("_T", bound=BaseModel)
-
-
-def yaml_to_model(yaml_doc: str, cls: type[_T]) -> _T:
-    """Deserialize yaml to a model.
-
-    Parameters
-    ----------
-    yaml_doc : str
-        The serialized model
-    cls : type
-        The type to deserialize to
-
-    Returns
-    -------
-    _T
-        The deserialized model instance
-    """
-    loaded_dict = yaml.safe_load(yaml_doc)
-
-    return cls.model_validate(loaded_dict)
-
-
-@pytest.fixture
-def fake_blueprint_path(tmp_path: Path) -> Path:
-    """Create an empty blueprint yaml file.
-
-    Parameters
-    ----------
-    tmp_path : Path
-        Unique path for test-specific files
-    """
-    path = tmp_path / "blueprint.yml"
-    path.touch()
-    return path
-
-
-@pytest.fixture
-def gen_fake_steps(tmp_path: Path) -> t.Callable[[int], t.Generator[Step, None, None]]:
-    """Create fake steps for testing purposes.
-
-    Parameters
-    ----------
-    tmp_path : Path
-        Unique path for test-specific files
-    """
-
-    def _gen_fake_steps(num_steps: int) -> t.Generator[Step, None, None]:
-        """Create `num_steps` fake steps."""
-        for _ in range(num_steps):
-            step_name = f"test-step-{uuid.uuid4()}"
-            app_name = f"test-app-{uuid.uuid4()}"
-            path = tmp_path / f"dummy-blueprint-{uuid.uuid4()}.yml"
-            path.touch()
-
-            yield Step(
-                name=step_name,
-                application=app_name,
-                blueprint=path,
-            )
-
-    return _gen_fake_steps
 
 
 def test_step_defaults(fake_blueprint_path: Path) -> None:
@@ -393,7 +294,7 @@ def test_step_dependson_copy(
 )
 def test_step_blueprint_overrides(
     fake_blueprint_path: Path,
-    overrides: dict[str, str | int],
+    overrides: KeyValueStore,
 ) -> None:
     """Verify that step blueprint overrides value is stored as expected.
 
@@ -425,7 +326,7 @@ def test_step_blueprint_overrides(
 )
 def test_step_compute_overrides(
     fake_blueprint_path: Path,
-    overrides: dict[str, str | int],
+    overrides: KeyValueStore,
 ) -> None:
     """Verify that step compute overrides value is stored as expected.
 
@@ -488,7 +389,7 @@ def test_step_compute_overrides_set(
 )
 def test_step_workflow_overrides(
     fake_blueprint_path: Path,
-    overrides: dict[str, str | int],
+    overrides: KeyValueStore,
 ) -> None:
     """Verify that step workflow overrides value is stored as expected.
 
@@ -520,7 +421,7 @@ def test_step_workflow_overrides_set(
         A path to a file that meets minimum expectations (it exists).
 
     """
-    overrides: dict[str, str | int] = {"a": 1, "b": 2, "c": "xyz"}
+    overrides: KeyValueStore = {"a": 1, "b": 2, "c": "xyz"}
 
     step_name = f"test-step-{uuid.uuid4()}"
     app_name = f"test-app-{uuid.uuid4()}"
@@ -602,7 +503,7 @@ def test_step_blueprint_overrides_set(
         A path to a file that meets minimum expectations (it exists).
 
     """
-    overrides: dict[str, str | int] = {"a": 1, "b": 2, "c": "xyz"}
+    overrides: KeyValueStore = {"a": 1, "b": 2, "c": "xyz"}
 
     step_name = f"test-step-{uuid.uuid4()}"
     app_name = f"test-app-{uuid.uuid4()}"
@@ -786,7 +687,7 @@ def test_workplan_steps_validation(invalid_value: list | None) -> None:
     ],
 )
 def test_workplan_compute_environment(
-    compute_env: dict[str, str | int],
+    compute_env: KeyValueStore,
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
     """Verify the compute environment of the workplan is set as expected.
@@ -845,6 +746,7 @@ def test_workplan_json_serialize(
 def test_workplan_yaml_serialize(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
     tmp_path: pathlib.Path,
+    serialize_model: t.Callable[[BaseModel, Path], str],
 ) -> None:
     """Verify that the model serializes to YAML without errors.
 
@@ -862,12 +764,13 @@ def test_workplan_yaml_serialize(
         steps=list(gen_fake_steps(1)),
     )
 
-    yaml_doc = model_to_yaml(plan)
-    yaml_path = tmp_path / "test.yaml"
+    schema = plan.model_json_schema()
+    schema_path = tmp_path / "schema.json"
+    with schema_path.open("w") as fp:
+        fp.write(json.dumps(schema))
 
-    print(f"Writing test yaml document to: {yaml_path}")
-    with yaml_path.open("w") as fp:
-        fp.write(yaml_doc)
+    yaml_path = tmp_path / "test.yaml"
+    yaml_doc = serialize_model(plan, yaml_path)
 
     assert "name" in yaml_doc
     assert "description" in yaml_doc
@@ -885,6 +788,8 @@ def test_workplan_yaml_serialize(
 def test_workplan_yaml_deserialize(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
     tmp_path: pathlib.Path,
+    serialize_model: t.Callable[[BaseModel, Path], str],
+    deserialize_model: t.Callable[[Path, type], BaseModel],
 ) -> None:
     """Verify that the model deserializes from YAML without errors.
 
@@ -902,15 +807,10 @@ def test_workplan_yaml_deserialize(
         steps=list(gen_fake_steps(1)),
     )
 
-    yaml_doc = model_to_yaml(plan)
     yaml_path = tmp_path / "test.yaml"
+    _ = serialize_model(plan, yaml_path)
 
-    print(f"Writing test yaml document to: {yaml_path}")
-    with yaml_path.open("w") as fp:
-        fp.write(yaml_doc)
-
-    written = yaml_path.read_text()
-    plan2 = yaml_to_model(written, Workplan)
+    plan2 = t.cast("Workplan", deserialize_model(yaml_path, Workplan))
 
     assert plan == plan2
 
@@ -1035,6 +935,30 @@ def test_workplan_runtimevars_set(
     assert "runtime_vars" in str(error)
 
 
+def test_workplan_runtimevars_duplicates(
+    gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
+) -> None:
+    """Verify that the Workplan identifies duplicate runtime_vars
+
+    Parameters
+    ----------
+    gen_fake_steps : t.Callable[[int], t.Generator[Step, None, None]]
+        A generator function to produce minimally valid test steps
+
+    """
+    runtime_vars = ["a", "a", "c"]
+
+    with pytest.raises(ValidationError) as error:
+        _ = Workplan(
+            name="test-plan",
+            description="test-description",
+            steps=list(gen_fake_steps(2)),
+            runtime_vars=runtime_vars,
+        )
+
+    assert "runtime_vars" in str(error)
+
+
 def test_workplan_computeenv_copy(
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
 ) -> None:
@@ -1046,7 +970,7 @@ def test_workplan_computeenv_copy(
         A generator function to produce minimally valid test steps
 
     """
-    compute_env: dict[str, str | int] = {"a": 1, "b": 2, "c": "xyz"}
+    compute_env: KeyValueStore = {"a": 1, "b": 2, "c": "xyz"}
 
     plan = Workplan(
         name="test-plan",
@@ -1056,7 +980,7 @@ def test_workplan_computeenv_copy(
     )
 
     og_env = dict(**compute_env)
-    new_values: dict[str, str | int] = {"CSTAR_XYZ": 42, "CSTAR_PQR": "xxx"}
+    new_values: KeyValueStore = {"CSTAR_XYZ": 42, "CSTAR_PQR": "xxx"}
 
     compute_env.update(new_values)
 
