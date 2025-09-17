@@ -58,6 +58,3 @@ def test_serial_planner(tmp_path: Path, test_graph: nx.DiGraph) -> None:
         "task-5",
         "task-7",
     ]
-
-    # image_path = orchestrator.render(tmp_path)
-    # assert image_path.exists()
