@@ -148,6 +148,9 @@ def load_workplan() -> t.Callable[[Path], Workplan]:
 
 @pytest.fixture
 def complete_workplan_template_input() -> dict[str, t.Any]:
+    """Create a dictionary containing all attributes required to deserialize
+    a valid workplan, each populated with a valid value (no steps).
+    """
     return {
         "name": "Test Workplan",
         "description": "This is the description of my test workplan",
@@ -163,6 +166,9 @@ def complete_workplan_template_input() -> dict[str, t.Any]:
 
 @pytest.fixture
 def empty_workplan_template_input() -> dict[str, t.Any]:
+    """Create a dictionary containing all attributes required to deserialize
+    a valid workplan, but with each field being an empty or unset value.
+    """
     return {
         "name": "",
         "description": "",
