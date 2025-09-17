@@ -3,7 +3,7 @@ import typing as t
 from pathlib import Path
 
 from pydantic import BaseModel
-from yaml import parse
+from yaml import safe_load
 
 from cstar.orchestration import models
 from cstar.roms import ROMSSimulation
@@ -38,7 +38,7 @@ def _read_json(path: Path, klass: type[_T]) -> _T:
 
 def _read_yaml(path: Path, klass: type[_T]) -> _T:
     with path.open("r", encoding="utf-8") as fp:
-        model_dict = parse(fp)
+        model_dict = safe_load(fp)
         return klass.model_validate(model_dict)
 
 
@@ -58,7 +58,7 @@ def deserialize(
     path: Path,
     klass: type[_DT],
     mode: PersistenceMode = PersistenceMode.auto,
-) -> ROMSSimulation | None:
+) -> _DT:
     """Deserialize a blueprint into a Simulation instance.
 
     Parameters
@@ -92,7 +92,7 @@ def deserialize(
 
     model: _DT | None = None
     ext = path.suffix
-    is_auto = mode = PersistenceMode.auto
+    is_auto = mode == PersistenceMode.auto
     use_json = (is_auto and ext == ".json") or mode == PersistenceMode.json
     use_yaml = (is_auto and (ext in {".yaml", ".yml"})) or mode == PersistenceMode.yaml
 
@@ -110,5 +110,6 @@ def deserialize(
     # should return more than one.
     #
     # TODONT: Do NOT build a DAG at this level? again, info loss on conversion?
-    map_fn = adapter_map[klass]
-    return map_fn(model)
+    # map_fn = adapter_map[klass]
+    # return map_fn(model)
+    return model

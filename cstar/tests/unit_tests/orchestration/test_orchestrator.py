@@ -11,13 +11,14 @@ from cstar.orchestration.models import (
     Blueprint,
     BlueprintState,
     CodeRepository,
-    Forcing,
     ForcingConfiguration,
-    Grid,
-    ParameterSet,
+    HashableFile,
+    ModelParameterSet,
+    MultiFileDataset,
     PartitioningParameterSet,
     ROMSCompositeCodeRepository,
     RuntimeParameterSet,
+    SingleFileDataset,
     Workplan,
 )
 from cstar.orchestration.orchestrator import GraphPlanner, SerialPlanner
@@ -82,6 +83,8 @@ def test_make_a_minimum_blueprint_yaml(
 ) -> None:
     """Use a unit test to create a blueprint YAML doc instead of doing so by hand..."""
     bp_path = tmp_path / "blueprint.yml"
+    random_file = tmp_path / "random_file.nc"
+    random_file.touch()
 
     blueprint = Blueprint(
         name="Test Blueprint Name",
@@ -92,30 +95,31 @@ def test_make_a_minimum_blueprint_yaml(
         valid_end_date=datetime.datetime(2020, 2, 1, 0, 0, 0),
         code=ROMSCompositeCodeRepository(
             roms=CodeRepository(
-                url="http://github.com/ankona/ucla-roms",
+                location="http://github.com/ankona/ucla-roms",
                 branch="main",
             ),
             run_time=CodeRepository(
-                url="http://github.com/ankona/ucla-roms",
+                location="http://github.com/ankona/ucla-roms",
                 branch="main",
             ),
             compile_time=CodeRepository(
-                url="http://github.com/ankona/ucla-roms",
+                location="http://github.com/ankona/ucla-roms",
                 branch="main",
             ),
             marbl=None,
         ),
         forcing=ForcingConfiguration(
-            boundary=Forcing(),
-            surface=Forcing(),
-            wind=Forcing(),
-            tidal=Forcing(),
-            river=Forcing(),
+            boundary=MultiFileDataset(files=[HashableFile(location=random_file)]),
+            surface=MultiFileDataset(files=[HashableFile(location=random_file)]),
+            corrections=MultiFileDataset(files=[HashableFile(location=random_file)]),
+            tidal=SingleFileDataset(location=random_file),
+            river=SingleFileDataset(location=random_file),
         ),
-        partitioning=PartitioningParameterSet(),
-        model_params=ParameterSet(),
+        partitioning=PartitioningParameterSet(n_procs_x=1, n_procs_y=2),
+        model_params=ModelParameterSet(time_step=1),
         runtime_params=RuntimeParameterSet(),
-        grid=Grid(min_latitude=0, max_latitude=10, min_longitude=0, max_longitude=10),
+        grid=SingleFileDataset(location=random_file),
+        initial_conditions=SingleFileDataset(location=random_file),
     )
 
     bp_yaml = serialize_blueprint(blueprint, bp_path)
