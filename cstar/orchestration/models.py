@@ -130,6 +130,22 @@ class CodeRepository(BaseModel):
     filter: PathFilter | None = Field(default=None, validate_default=False)
     """A filter specifying the files to be retrieved and persisted from the repository."""
 
+    @model_validator(mode="after")
+    def _model_validator(self) -> "CodeRepository":
+        """Perform validation on the model after field-level validation is complete.
+
+        - Ensure that one of commit or branch checkout target is supplied
+        """
+        if self.commit and self.branch:
+            msg = "Supply only one of commit hash or branch."
+            raise ValueError(msg)
+
+        if not self.commit and not self.branch:
+            msg = "Either the commit hash or branch must be supplied."
+            raise ValueError(msg)
+
+        return self
+
 
 class ROMSCompositeCodeRepository(BaseModel):
     """Collection of repositories used to build, configure, and execute ROMS."""
