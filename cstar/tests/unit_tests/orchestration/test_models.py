@@ -764,7 +764,7 @@ def test_workplan_yaml_serialize(
         steps=list(gen_fake_steps(1)),
     )
 
-    schema = plan.model_json_schema()
+    schema = Workplan.model_json_schema()
     schema_path = tmp_path / "schema.json"
     with schema_path.open("w") as fp:
         fp.write(json.dumps(schema))
