@@ -11,7 +11,14 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from cstar.orchestration.models import Blueprint, Step, Workplan, WorkplanState
+from cstar.orchestration.models import (
+    Application,
+    Blueprint,
+    BlueprintState,
+    Step,
+    Workplan,
+    WorkplanState,
+)
 
 
 def model_to_yaml(model: BaseModel) -> str:
@@ -35,6 +42,18 @@ def model_to_yaml(model: BaseModel) -> str:
     ) -> yaml.ScalarNode:
         return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
 
+    def application_representer(
+        dumper: yaml.Dumper,
+        data: Application,
+    ) -> yaml.ScalarNode:
+        return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
+
+    def blueprintstate_representer(
+        dumper: yaml.Dumper,
+        data: BlueprintState,
+    ) -> yaml.ScalarNode:
+        return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
+
     def workplanstate_representer(
         dumper: yaml.Dumper,
         data: WorkplanState,
@@ -45,6 +64,8 @@ def model_to_yaml(model: BaseModel) -> str:
 
     dumper.add_representer(pathlib.PosixPath, path_representer)
     dumper.add_representer(WorkplanState, workplanstate_representer)
+    dumper.add_representer(Application, application_representer)
+    dumper.add_representer(BlueprintState, blueprintstate_representer)
 
     return yaml.dump(dumped, sort_keys=False)
 
