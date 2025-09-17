@@ -2,6 +2,7 @@ import re
 import time
 import typing as t
 from enum import IntEnum
+from functools import singledispatchmethod
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -504,6 +505,7 @@ class Orchestrator:
 
         return task
 
+    @singledispatchmethod
     def run_step(self, step: Step) -> None:
         """Trigger execution of a step with the launcher."""
         if step.name not in self.task_lookup:
@@ -528,6 +530,17 @@ class Orchestrator:
 
         if current_status > TaskStatus.Active:
             self.planner.remove(step)
+
+    @run_step.register(int)
+    def _run_step_int(self, index: int) -> None:
+        steps = self.planner.workplan.steps
+
+        if index > len(steps):
+            msg = f"Step index is out of range. Index must be less than {len(steps)}"
+            raise IndexError(msg)
+
+        step = self.planner.workplan.steps[index]
+        return self.run_step(step)
 
     def run(self) -> None:
         """Trigger execution of all steps in the plan."""
