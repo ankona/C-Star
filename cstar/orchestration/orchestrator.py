@@ -522,7 +522,7 @@ class Orchestrator:
         return task
 
     @singledispatchmethod
-    def run_step(self, step: Step) -> None:
+    def run_step(self, step: Step) -> TaskStatus:
         """Trigger execution of a step with the launcher."""
         if step.name not in self.task_lookup:
             # status = self.launcher.report(step)
@@ -530,7 +530,7 @@ class Orchestrator:
             # launcher has seen this step before.
             task = self._start(step)
             # continue
-            return
+            return task.status
 
         task = self.task_lookup[step.name]
         current_status = self.launcher.report(step)
@@ -540,17 +540,14 @@ class Orchestrator:
             # TODO (ankona, http://noop): publish an on-status-changed event...
             self.task_lookup[step.name].status = current_status
 
-        # if current_status == TaskStatus.Active:
-        #     # no tasks to start. sleep for a while ....
-        #     time.sleep(Orchestrator.SLEEP_DURATION)
-        #     continue
-
         if current_status > TaskStatus.Active:
             self.planner.remove(step)
             self.task_archive[task.step.name] = self.task_lookup.pop(task.step.name)
 
+        return current_status
+
     @run_step.register(int)
-    def _run_step_int(self, index: int) -> None:
+    def _run_step_int(self, index: int) -> TaskStatus:
         steps = self.planner.workplan.steps
 
         if index > len(steps):
