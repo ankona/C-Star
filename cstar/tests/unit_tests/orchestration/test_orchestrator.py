@@ -1,10 +1,26 @@
+import datetime
+import typing as t
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import networkx as nx
 import pytest
+from pydantic import BaseModel
 
-from cstar.orchestration.models import Workplan
+from cstar.orchestration.models import (
+    Application,
+    Blueprint,
+    BlueprintState,
+    CodeRepository,
+    Forcing,
+    ForcingConfiguration,
+    Grid,
+    ParameterSet,
+    PartitioningParameterSet,
+    ROMSCompositeCodeRepository,
+    RuntimeParameterSet,
+    Workplan,
+)
 from cstar.orchestration.orchestrator import GraphPlanner, SerialPlanner
 
 
@@ -58,3 +74,53 @@ def test_serial_planner(tmp_path: Path, test_graph: nx.DiGraph) -> None:
         "task-5",
         "task-7",
     ]
+
+
+@pytest.mark.skip(reason="Used for development purposes, only")
+def test_make_a_minimum_blueprint_yaml(
+    tmp_path: Path,
+    serialize_model: t.Callable[[BaseModel, Path], str],
+) -> None:
+    """Use a unit test to create a blueprint YAML doc instead of doing so by hand..."""
+    bp_path = tmp_path / "blueprint.yml"
+
+    blueprint = Blueprint(
+        name="Test Blueprint Name",
+        description="This is the description of my test blueprint",
+        application=Application.HOSTNAME,
+        state=BlueprintState.Draft,
+        valid_start_date=datetime.datetime(2020, 1, 1, 0, 0, 0),
+        valid_end_date=datetime.datetime(2020, 2, 1, 0, 0, 0),
+        code=ROMSCompositeCodeRepository(
+            roms=CodeRepository(
+                url="http://github.com/ankona/ucla-roms",
+                branch="main",
+            ),
+            run_time=CodeRepository(
+                url="http://github.com/ankona/ucla-roms",
+                branch="main",
+            ),
+            compile_time=CodeRepository(
+                url="http://github.com/ankona/ucla-roms",
+                branch="main",
+            ),
+            marbl=None,
+        ),
+        forcing=ForcingConfiguration(
+            boundary=Forcing(),
+            surface=Forcing(),
+            wind=Forcing(),
+            tidal=Forcing(),
+            river=Forcing(),
+        ),
+        partitioning=PartitioningParameterSet(),
+        model_params=ParameterSet(),
+        runtime_params=RuntimeParameterSet(),
+        grid=Grid(min_latitude=0, max_latitude=10, min_longitude=0, max_longitude=10),
+    )
+
+    bp_yaml = serialize_model(blueprint, bp_path)
+    assert bp_yaml.strip()
+
+    bp_path.write_text(bp_yaml)
+    assert bp_path.exists()
