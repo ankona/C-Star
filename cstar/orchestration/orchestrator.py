@@ -189,7 +189,7 @@ class Planner(t.Protocol):
         """Initialize the planner."""
         self.workplan = plan
 
-    def __next__(self) -> Step:
+    def __next__(self) -> Step | None:
         steps: tuple[Step, ...] = ()
 
         if steps:
@@ -198,7 +198,7 @@ class Planner(t.Protocol):
         raise StopIteration
 
     def __iter__(self) -> t.Iterator[Step]:
-        return self
+        return iter(self.workplan.steps)
 
     # def active(self) -> tuple[Step, ...]:
     #     """Return all steps marked as active.
@@ -271,7 +271,9 @@ class GraphPlanner(Planner):
             self._og = graph
             self.graph = GraphPlanner._add_start_node(graph)
 
-    # def __next__(self) -> t.Iterable[Step]:
+    def __next__(self) -> Step | None:
+        return None
+
     #     """Return an iterator that locates any `Step`'s ready for execution."""
     #     G = nx.DiGraph(self.graph)
 
@@ -455,19 +457,20 @@ class SerialPlanner(Planner):
         if index != -1 and not self.plan[index]:
             self.plan.pop(index)
 
-    def __next__(self) -> Step:
+    def __next__(self) -> Step | None:
         """Return the next available step.
 
         If steps are blocked due to serial plan execution or dependencies, the
         currently executing step will be returned.
         """
-        # import itertools
+        if self.plan:
+            return self.plan[0]
 
-        return self.plan[0]
+        return None
 
     def __iter__(self) -> t.Iterator[Step]:
         """Return an iterator over the planner's steps."""
-        return iter(self)
+        return iter(self.plan)
 
 
 class Orchestrator:
