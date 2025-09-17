@@ -400,17 +400,14 @@ def fill_blueprint_template(
             code:
               roms:
                 url: http://github.com/ankona/ucla-roms
-                commit: ''
                 branch: main
                 filter: null
               run_time:
                 url: http://github.com/ankona/ucla-roms
-                commit: ''
                 branch: main
                 filter: null
               compile_time:
                 url: http://github.com/ankona/ucla-roms
-                commit: ''
                 branch: main
                 filter: null
               marbl: null
@@ -421,17 +418,17 @@ def fill_blueprint_template(
               tidal: {{}}
               river: {{}}
             partitioning:
-              documentation: ''
+              documentation: http://mockdoc.com/partitioning
               hash: null
               locked: false
               n_procs_x: 16
               n_procs_y: 8
             model_params:
-              documentation: ''
+              documentation: http://mockdoc.com/model-params
               hash: null
               locked: false
             runtime_params:
-              documentation: ''
+              documentation: http://mockdoc.com/runtime-params
               hash: null
               locked: false
               start_date: 0001-01-01 00:00:00+00:00
