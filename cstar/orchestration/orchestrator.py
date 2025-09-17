@@ -507,7 +507,6 @@ class Orchestrator:
         self.launcher = launcher
         self.task_lookup = {}
         self.task_archive = {}
-        # self.tasks = []
 
     def _start(self, step: Step) -> Task:
         task, *_ = self.launcher.launch([step])
