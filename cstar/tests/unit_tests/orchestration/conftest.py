@@ -243,6 +243,39 @@ def empty_workplan_template_input() -> dict[str, t.Any]:
 
 
 @pytest.fixture
+def complete_blueprint_template_input() -> dict[str, t.Any]:
+    """Create a dictionary containing all attributes required to deserialize
+    a valid blueprint, each populated with a valid value.
+    """
+    return {
+        "name": "Test Workplan",
+        # "description": "This is the description of my test workplan",
+        # "state": "draft",
+        # "compute_environment": {
+        #     "num_nodes": 4,
+        #     "num_cpus_per_process": 16,
+        # },
+        # "runtime_vars": ["var1", "var2"],
+        # "steps": [],
+    }
+
+
+@pytest.fixture
+def empty_blueprint_template_input() -> dict[str, t.Any]:
+    """Create a dictionary containing all attributes required to deserialize
+    a valid blueprint, but with each field being an empty or unset value.
+    """
+    return {
+        "name": "",
+        # "description": "",
+        # "state": "",
+        # "compute_environment": {},
+        # "runtime_vars": [],
+        # "steps": [],
+    }
+
+
+@pytest.fixture
 def workplan_schema_path(tmp_path: Path) -> Path:
     """Create a schema file that can be referenced in a yaml document."""
     # yaml-language-server: $schema=/this/path.json
