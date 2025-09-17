@@ -339,3 +339,115 @@ def fill_workplan_template(
         return populated
 
     return _get_workplan_template
+
+
+@pytest.fixture
+def fill_blueprint_template(
+    empty_workplan_template_input: dict[str, t.Any],
+    blueprint_schema_path: Path,
+) -> t.Callable[[dict[str, t.Any]], str]:
+    """Create a function to populate a raw workplan yaml document template."""
+
+    def _get_blueprint_template(
+        input_data: dict[str, t.Any],
+        list_form: int = 0,
+    ) -> str:
+        """Populate the template with the supplied data."""
+        dedent = "            "  # depth of populated dedent below...
+        l1_indent = " " * 4
+        # l2_indent = l1_indent * 2
+
+        fill_vals = empty_workplan_template_input
+
+        if "name" in input_data:
+            fill_vals["name"] = input_data["name"]
+        if "description" in input_data:
+            fill_vals["description"] = input_data["description"]
+        if "state" in input_data:
+            fill_vals["state"] = input_data["state"]
+
+        for dict_key in ["compute_environment"]:
+            user_supplied = input_data.get(dict_key, "")
+
+            if user_supplied:
+                clauses = [
+                    f"{dedent}{l1_indent}{k}: {v}" for k, v in user_supplied.items()
+                ]
+                clause = "\n" + "\n".join(clauses)
+            else:
+                clause = " {}"
+
+            fill_vals[dict_key] = clause
+
+        rtvs = input_data.get("runtime_vars", [])
+        if list_form == 0:
+            fill_vals["runtime_vars"] = f"[{', '.join(rtvs)}]"
+        elif list_form == 1:
+            fill_vals["runtime_vars"] = "\n" + "\n".join(
+                f"{dedent}{l1_indent}- {rtv}" for rtv in rtvs
+            )
+
+        # NOTE: using __file__ for blueprint path to give an existing path to pass validator
+        populated = textwrap.dedent(
+            f"""\
+            # yaml-language-server: $schema={blueprint_schema_path.as_posix()}
+            name: {fill_vals["name"]}
+            description: This is the description of my test blueprint
+            application: hostname
+            state: draft
+            valid_start_date: 2020-01-01 00:00:00
+            valid_end_date: 2020-02-01 00:00:00
+            code:
+              roms:
+                url: http://github.com/ankona/ucla-roms
+                commit: ''
+                branch: main
+                filter: null
+              run_time:
+                url: http://github.com/ankona/ucla-roms
+                commit: ''
+                branch: main
+                filter: null
+              compile_time:
+                url: http://github.com/ankona/ucla-roms
+                commit: ''
+                branch: main
+                filter: null
+              marbl: null
+            forcing:
+              boundary: {{}}
+              surface: {{}}
+              wind: {{}}
+              tidal: {{}}
+              river: {{}}
+            partitioning:
+              documentation: ''
+              hash: null
+              locked: false
+              n_procs_x: 16
+              n_procs_y: 8
+            model_params:
+              documentation: ''
+              hash: null
+              locked: false
+            runtime_params:
+              documentation: ''
+              hash: null
+              locked: false
+              start_date: 0001-01-01 00:00:00+00:00
+              end_date: 0002-01-01 00:00:00+00:00
+              checkpoint_frequency: 1d
+              output_dir: .
+            grid:
+              min_latitude: 0.0
+              max_latitude: 10.0
+              min_longitude: 0.0
+              max_longitude: 10.0
+            """,
+        )
+
+        print(f"populated blueprint template:\n{populated}\n")
+
+        return populated
+
+    return _get_blueprint_template
