@@ -1,5 +1,6 @@
 # ruff: noqa: S101
 
+import json
 import pathlib
 import textwrap
 import typing as t
@@ -10,7 +11,7 @@ import pytest
 import yaml
 from pydantic import BaseModel
 
-from cstar.orchestration.models import Step, Workplan, WorkplanState
+from cstar.orchestration.models import Blueprint, Step, Workplan, WorkplanState
 
 
 def model_to_yaml(model: BaseModel) -> str:
@@ -180,8 +181,29 @@ def empty_workplan_template_input() -> dict[str, t.Any]:
 
 
 @pytest.fixture
+def workplan_schema_path(tmp_path: Path) -> Path:
+    """Create a schema file that can be referenced in a yaml document."""
+    # yaml-language-server: $schema=/this/path.json
+    path = tmp_path / "schema.json"
+    schema = json.dumps(Workplan.model_json_schema())
+    path.write_text(schema)
+    return path
+
+
+@pytest.fixture
+def blueprint_schema_path(tmp_path: Path) -> Path:
+    """Create a schema file that can be referenced in a yaml document."""
+    # yaml-language-server: $schema=/this/path.json
+    path = tmp_path / "schema.json"
+    schema = json.dumps(Blueprint.model_json_schema())
+    path.write_text(schema)
+    return path
+
+
+@pytest.fixture
 def fill_workplan_template(
     empty_workplan_template_input: dict[str, t.Any],
+    workplan_schema_path: Path,
 ) -> t.Callable[[dict[str, t.Any]], str]:
     """Create a function to populate a raw workplan yaml document template."""
 
@@ -227,7 +249,7 @@ def fill_workplan_template(
         # NOTE: using __file__ for blueprint path to give an existing path to pass validator
         populated = textwrap.dedent(
             f"""\
-            # yaml-language-server: $schema=/Users/chris/code/blueprints/workplan-schema.json
+            # yaml-language-server: $schema={workplan_schema_path.as_posix()}
             name: {fill_vals["name"]}
             description: {fill_vals["description"]}
             state: {fill_vals["state"]}
