@@ -167,6 +167,8 @@ class BlueprintState(StrEnum):
     """The allowed states for a work plan."""
 
     # TODO: determine if unique states for Bp/WP are being considered, if not. discard.
+    NotSet = auto()
+    """Default, unset value."""
 
     Draft = auto()
     """A blueprint that has not been validated."""
@@ -320,7 +322,7 @@ class Blueprint(BaseModel):
     application: Application = Application.ROMS
     """The process type to be executed by the blueprint."""
 
-    state: BlueprintState = BlueprintState.Draft
+    state: BlueprintState = BlueprintState.NotSet
     """The current validation status of the blueprint."""
 
     valid_start_date: PastDatetime
@@ -360,6 +362,8 @@ class Blueprint(BaseModel):
 
 class WorkplanState(StrEnum):
     """The allowed states for a work plan."""
+
+    NotSet = auto()
 
     Draft = auto()
     """A workflow that has not been validated."""
@@ -451,7 +455,7 @@ class Workplan(BaseModel):
     )
     """The steps to be executed by the workplan."""
 
-    state: WorkplanState = WorkplanState.Draft
+    state: WorkplanState = Field(default=WorkplanState.NotSet)
     """The current validation status of the workplan."""
 
     compute_environment: KeyValueStore = Field(
