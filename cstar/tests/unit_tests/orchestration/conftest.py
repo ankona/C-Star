@@ -34,7 +34,7 @@ def model_to_yaml(model: BaseModel) -> str:
     str
         The serialized model
     """
-    dumped = model.model_dump()
+    dumped = model.model_dump(exclude_defaults=True)
 
     def path_representer(
         dumper: yaml.Dumper,
