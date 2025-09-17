@@ -331,6 +331,16 @@ def fill_workplan_template(
                   compute_overrides:
                       walltime: 00:10:00
                       num_nodes: 4
+                - name: Test Another Step
+                  application: hostname
+                  depends_on: []
+                  blueprint: {__file__}
+                  blueprint_overrides: {{}}
+                  workflow_overrides:
+                      segment_length: 16
+                  compute_overrides:
+                      walltime: 00:10:00
+                      num_nodes: 4
             """,
         )
 
