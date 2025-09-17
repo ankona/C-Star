@@ -317,8 +317,8 @@ class GraphPlanner(Planner):
         # find all steps with no dependencies, allowing immediate start
         start_edges = [
             (GraphPlanner.START_NODE, slug)
-            for slug in self.graph.nodes()
-            if self.graph.in_degree(slug) == 0
+            for slug in graph.nodes()
+            if graph.in_degree(slug) == 0
         ]
 
         # Add the start node with edges to all independent steps
