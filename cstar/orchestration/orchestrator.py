@@ -495,16 +495,19 @@ class Orchestrator:
     launcher: Launcher
     """The launcher used to interact with executing tasks."""
 
-    tasks: list[Task]
-    """A list of tasks being managed."""
-
     task_lookup: dict[str, Task]
     """Map for direct task retrieval"""
+
+    task_archive: dict[str, Task]
+    """Map for direct task retrieval of completed tasks."""
 
     def __init__(self, planner: Planner, launcher: Launcher) -> None:
         """Prepare the orchestrator to execute a plan."""
         self.planner = planner
         self.launcher = launcher
+        self.task_lookup = {}
+        self.task_archive = {}
+        # self.tasks = []
 
     def _start(self, step: Step) -> Task:
         task, *_ = self.launcher.launch([step])
@@ -514,7 +517,6 @@ class Orchestrator:
             raise RuntimeError(msg)
 
         self.task_lookup[step.name] = task
-        self.tasks.append(task)
         # self.planner.remove(step)
 
         return task
@@ -534,6 +536,7 @@ class Orchestrator:
         current_status = self.launcher.report(step)
 
         if task.status != current_status:
+            print(f"Task status changed from {task.status} to {current_status}")
             # TODO (ankona, http://noop): publish an on-status-changed event...
             self.task_lookup[step.name].status = current_status
 
@@ -544,6 +547,7 @@ class Orchestrator:
 
         if current_status > TaskStatus.Active:
             self.planner.remove(step)
+            self.task_archive[task.step.name] = self.task_lookup.pop(task.step.name)
 
     @run_step.register(int)
     def _run_step_int(self, index: int) -> None:
