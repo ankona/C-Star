@@ -75,7 +75,7 @@ def test_serial_planner(tmp_path: Path, test_graph: nx.DiGraph) -> None:
     ]
 
 
-@pytest.mark.skip(reason="Used for development purposes, only")
+# @pytest.mark.skip(reason="Used for development purposes, only")
 def test_make_a_minimum_blueprint_yaml(
     tmp_path: Path,
     serialize_blueprint: t.Callable[[Blueprint, Path], str],
