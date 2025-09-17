@@ -450,11 +450,12 @@ class SerialPlanner(Planner):
         index = self.plan.index(step)
 
         if index == -1:
+            # TODO: consider just warning with logger?
             msg = "Step not found in planner"
             raise ValueError(msg)
 
-        # now that i've removed something from a nested list, check if i can remove the list.
-        if index != -1 and not self.plan[index]:
+        if -1 < index < len(self.plan):
+            # TODO: log this as a warning if out of range.
             self.plan.pop(index)
 
     def __next__(self) -> Step | None:
