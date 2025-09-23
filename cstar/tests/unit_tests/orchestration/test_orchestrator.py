@@ -117,7 +117,10 @@ def test_make_a_minimum_blueprint_yaml(
         ),
         partitioning=PartitioningParameterSet(n_procs_x=1, n_procs_y=2),
         model_params=ModelParameterSet(time_step=1),
-        runtime_params=RuntimeParameterSet(),
+        runtime_params=RuntimeParameterSet(
+            start_date=datetime.datetime(2020, 1, 1, 0, 0, 0),
+            end_date=datetime.datetime(2020, 2, 1, 0, 0, 0),
+        ),
         grid=SingleFileDataset(location=random_file),
         initial_conditions=SingleFileDataset(location=random_file),
     )

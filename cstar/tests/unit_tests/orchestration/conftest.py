@@ -497,8 +497,8 @@ def fill_blueprint_template(
               documentation: http://mockdoc.com/runtime-params
               hash: null
               locked: false
-              start_date: 0001-01-01 00:00:00+00:00
-              end_date: 0002-01-01 00:00:00+00:00
+              start_date: 2020-01-01 00:00:00
+              end_date: 2020-01-02 00:00:00
               checkpoint_frequency: 1d
               output_dir: .
             grid:
