@@ -17,7 +17,7 @@ class PersistenceMode(enum.StrEnum):
     auto = enum.auto()
 
 
-def _bp_to_sim(model: models.Blueprint) -> ROMSSimulation | None: ...
+def _bp_to_sim(model: models.RomsMarblBlueprint) -> ROMSSimulation | None: ...
 
 
 def _wp_to_sim(model: models.Workplan) -> ROMSSimulation | None:
@@ -43,15 +43,15 @@ def _read_yaml(path: Path, klass: type[_T]) -> _T:
 
 
 adapter_map: dict[
-    type[models.Blueprint | models.Workplan],
-    t.Callable[[models.Blueprint], ROMSSimulation | None]
+    type[models.RomsMarblBlueprint | models.Workplan],
+    t.Callable[[models.RomsMarblBlueprint], ROMSSimulation | None]
     | t.Callable[[models.Workplan], ROMSSimulation | None],
 ] = {
-    models.Blueprint: _bp_to_sim,
+    models.RomsMarblBlueprint: _bp_to_sim,
     models.Workplan: _wp_to_sim,
 }
 
-_DT = t.TypeVar("_DT", models.Blueprint, models.Workplan)
+_DT = t.TypeVar("_DT", models.RomsMarblBlueprint, models.Workplan)
 
 
 def deserialize(

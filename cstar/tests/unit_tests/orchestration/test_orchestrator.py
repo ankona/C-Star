@@ -8,7 +8,6 @@ import pytest
 
 from cstar.orchestration.models import (
     Application,
-    Blueprint,
     BlueprintState,
     CodeRepository,
     ForcingConfiguration,
@@ -17,6 +16,7 @@ from cstar.orchestration.models import (
     MultiFileDataset,
     PartitioningParameterSet,
     ROMSCompositeCodeRepository,
+    RomsMarblBlueprint,
     RuntimeParameterSet,
     SingleFileDataset,
     Workplan,
@@ -79,14 +79,14 @@ def test_serial_planner(tmp_path: Path, test_graph: nx.DiGraph) -> None:
 # @pytest.mark.skip(reason="Used for development purposes, only")
 def test_make_a_minimum_blueprint_yaml(
     tmp_path: Path,
-    serialize_blueprint: t.Callable[[Blueprint, Path], str],
+    serialize_blueprint: t.Callable[[RomsMarblBlueprint, Path], str],
 ) -> None:
     """Use a unit test to create a blueprint YAML doc instead of doing so by hand..."""
     bp_path = tmp_path / "blueprint.yml"
     random_file = tmp_path / "random_file.nc"
     random_file.touch()
 
-    blueprint = Blueprint(
+    blueprint = RomsMarblBlueprint(
         name="Test Blueprint Name",
         description="This is the description of my test blueprint",
         application=Application.HOSTNAME,

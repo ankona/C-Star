@@ -13,8 +13,8 @@ from pydantic import BaseModel
 
 from cstar.orchestration.models import (
     Application,
-    Blueprint,
     BlueprintState,
+    RomsMarblBlueprint,
     Step,
     Workplan,
     WorkplanState,
@@ -96,8 +96,8 @@ def yaml_to_model(yaml_doc: str, cls: type[_T]) -> _T:
 @pytest.fixture
 def serialize_blueprint(
     blueprint_schema_path: Path,
-) -> t.Callable[[Blueprint, Path], str]:
-    def _inner(model: Blueprint, path: Path) -> str:
+) -> t.Callable[[RomsMarblBlueprint, Path], str]:
+    def _inner(model: RomsMarblBlueprint, path: Path) -> str:
         yaml_doc = model_to_yaml(model)
 
         schema_directive = (
@@ -198,13 +198,13 @@ def load_workplan() -> t.Callable[[Path], Workplan]:
 
 
 @pytest.fixture
-def load_blueprint() -> t.Callable[[Path], Blueprint]:
+def load_blueprint() -> t.Callable[[Path], RomsMarblBlueprint]:
     """Create a function to load workplan yaml."""
 
-    def _data_loader(path: Path) -> Blueprint:
+    def _data_loader(path: Path) -> RomsMarblBlueprint:
         """Deserialize a yaml file and return the resulting Workplan."""
         yaml_doc = path.read_text(encoding="utf-8")
-        return yaml_to_model(yaml_doc, Blueprint)
+        return yaml_to_model(yaml_doc, RomsMarblBlueprint)
 
     return _data_loader
 
@@ -290,7 +290,7 @@ def blueprint_schema_path(tmp_path: Path) -> Path:
     """Create a schema file that can be referenced in a yaml document."""
     # yaml-language-server: $schema=/this/path.json
     path = tmp_path / "schema.json"
-    schema = json.dumps(Blueprint.model_json_schema())
+    schema = json.dumps(RomsMarblBlueprint.model_json_schema())
     path.write_text(schema)
     return path
 

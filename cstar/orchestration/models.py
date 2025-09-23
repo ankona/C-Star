@@ -290,6 +290,7 @@ class ModelParameterSet(ParameterSet):
 
 
 class Blueprint(ConfiguredBaseModel):
+    """Common elements of all blueprints."""
     name: RequiredString
     """A unique, user-friendly name for this blueprint."""
 
@@ -301,6 +302,9 @@ class Blueprint(ConfiguredBaseModel):
 
     state: BlueprintState = BlueprintState.NotSet
     """The current validation status of the blueprint."""
+
+class RomsMarblBlueprint(Blueprint):
+    """Blueprint schema for running a ROMS-MARBL simulation."""
 
     valid_start_date: datetime
     """Beginning of the time range for the available data."""
@@ -330,7 +334,7 @@ class Blueprint(ConfiguredBaseModel):
     """User-defined runtime parameters."""
 
     @model_validator(mode="after")
-    def _model_validator(self) -> "Blueprint":
+    def _model_validator(self) -> "RomsMarblBlueprint":
         """Perform validation on the model after field-level validation is complete."""
         if self.valid_end_date <= self.valid_start_date:
             msg = "valid_start_date must precede valid_end_date"
