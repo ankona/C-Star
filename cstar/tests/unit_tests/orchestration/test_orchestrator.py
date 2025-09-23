@@ -10,15 +10,15 @@ from cstar.orchestration.models import (
     Application,
     BlueprintState,
     CodeRepository,
+    Dataset,
     ForcingConfiguration,
-    HashableFile,
     ModelParameterSet,
-    MultiFileDataset,
     PartitioningParameterSet,
+    Resource,
     ROMSCompositeCodeRepository,
     RomsMarblBlueprint,
     RuntimeParameterSet,
-    SingleFileDataset,
+    VersionedResource,
     Workplan,
 )
 from cstar.orchestration.orchestrator import GraphPlanner, SerialPlanner
@@ -109,11 +109,39 @@ def test_make_a_minimum_blueprint_yaml(
             marbl=None,
         ),
         forcing=ForcingConfiguration(
-            boundary=MultiFileDataset(files=[HashableFile(location=random_file)]),
-            surface=MultiFileDataset(files=[HashableFile(location=random_file)]),
-            corrections=MultiFileDataset(files=[HashableFile(location=random_file)]),
-            tidal=SingleFileDataset(location=random_file),
-            river=SingleFileDataset(location=random_file),
+            boundary=Dataset(
+                documentation="Forcing uses a multi-file dataset",
+                data=[
+                    VersionedResource(
+                        location=random_file,
+                        hash="abc",
+                    ),
+                    Resource(
+                        location=random_file,
+                    ),
+                ],
+            ),
+            surface=Dataset(
+                documentation="Surface is multi-file. Only give it one...",
+                data=[
+                    Resource(location=random_file),
+                ],
+            ),
+            corrections=Dataset(
+                data=[
+                    VersionedResource(
+                        location=random_file,
+                        hash="xyz",
+                    ),
+                ],
+            ),
+            tidal=Dataset(
+                data=Resource(location=random_file),
+            ),
+            river=Dataset(
+                documentation="River dataset docs",
+                data=Resource(location=random_file),
+            ),
         ),
         partitioning=PartitioningParameterSet(n_procs_x=1, n_procs_y=2),
         model_params=ModelParameterSet(time_step=1),
@@ -121,11 +149,19 @@ def test_make_a_minimum_blueprint_yaml(
             start_date=datetime.datetime(2020, 1, 1, 0, 0, 0),
             end_date=datetime.datetime(2020, 2, 1, 0, 0, 0),
         ),
-        grid=SingleFileDataset(location=random_file),
-        initial_conditions=SingleFileDataset(location=random_file),
+        grid=Dataset(
+            documentation="Grid dataset doc",
+            data=Resource(location=random_file),
+        ),
+        initial_conditions=Dataset(
+            data=VersionedResource(location=random_file, hash="abc"),
+        ),
     )
 
     bp_yaml = serialize_blueprint(blueprint, bp_path)
+
+    with Path("test.yaml").open("w") as fp:
+        fp.write(bp_yaml)
 
     assert bp_yaml.strip()
     assert bp_path.exists()

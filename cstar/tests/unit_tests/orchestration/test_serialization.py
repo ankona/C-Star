@@ -220,7 +220,10 @@ def test_serial_planner(
     wp_path = tmp_path / "workplan.yaml"
     wp_path.write_text(wp_yaml)
 
-    blueprint = t.cast("Blueprint", deserialize_model(bp_path, RomsMarblBlueprint))
+    blueprint = t.cast(
+        "RomsMarblBlueprint",
+        deserialize_model(bp_path, RomsMarblBlueprint),
+    )
     workplan = t.cast("Workplan", deserialize_model(wp_path, Workplan))
 
     for step in workplan.steps:
