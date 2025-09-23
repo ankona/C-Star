@@ -110,6 +110,5 @@ def deserialize(
     # should return more than one.
     #
     # TODONT: Do NOT build a DAG at this level? again, info loss on conversion?
-    # map_fn = adapter_map[klass]
-    # return map_fn(model)
+
     return model

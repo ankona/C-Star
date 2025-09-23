@@ -1,8 +1,9 @@
 import typing as t
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import StrEnum, auto
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import (
     BaseModel,
@@ -45,7 +46,7 @@ class ConfiguredBaseModel(BaseModel):
 
 
 class HashableFile(ConfiguredBaseModel):
-    """Model representing a file that can be retrieved, with an optional hash check"""
+    """A file that can be retrieved, with an optional hash check"""
 
     location: FilePath | HttpUrl
     """Location of the file to retrieve."""
@@ -70,13 +71,11 @@ class SingleFileDataset(HashableFile, DocLocMixin):
 class MultiFileDataset(DocLocMixin, ConfiguredBaseModel):
     """A dataset that can be documented/locked that consists of a multiple files."""
 
-    files: list[HashableFile] = Field(default_factory=list)
+    files: Annotated[list[HashableFile], Field(min_length=1)]
 
 
 class PathFilter(ConfiguredBaseModel):
     """A filter used to specify a subset of files."""
-
-    category: t.Literal["path-filter"] = "path-filter"
 
     directory: str | None = Field(default="", validate_default=False)
     """Subdirectory that should be searched or kept."""
@@ -215,19 +214,18 @@ class RuntimeParameterSet(ParameterSet):
     without changing the validity of the model solution.
     """
 
-    start_date: datetime = datetime(1, 1, 1, tzinfo=timezone.utc)
+    start_date: datetime
     """Start of data time range to be used in the simulation."""
 
-    end_date: datetime = datetime(2, 1, 1, tzinfo=timezone.utc)
+    end_date: datetime
     """End of data time range to be used in the simulation."""
 
-    # restart_freq: str
     checkpoint_frequency: str = Field(
         default="1d",
         min_length=2,
         pattern="(?P<scalar>[1-9][0-9]*)(?P<unit>[hdwmy])",
     )
-    """Time period allowed between creation of a checkpoint file.
+    """Time period between creation of checkpoint files.
 
     Supply a string representing the desired time period, such as:
     - every day: "1d"
@@ -283,7 +281,10 @@ class PartitioningParameterSet(ParameterSet):
 
 
 class ModelParameterSet(ParameterSet):
-    """Parameters that can override ROMS values, but that affect that overall solution validity."""
+    """
+    Parameters that can override ROMS.in values. Unlike RuntimeParameters, these affect the validity of the
+    model solution, and should be locked for validated blueprints.
+    """
 
     time_step: PositiveInt
     """The time step the model integrates over."""
@@ -343,6 +344,14 @@ class RomsMarblBlueprint(Blueprint):
         """Perform validation on the model after field-level validation is complete."""
         if self.valid_end_date <= self.valid_start_date:
             msg = "valid_start_date must precede valid_end_date"
+            raise ValueError(msg)
+
+        if self.runtime_params.end_date > self.valid_end_date:
+            msg = "end_date is outside the valid range"
+            raise ValueError(msg)
+
+        if self.runtime_params.start_date < self.valid_start_date:
+            msg = "start_date is outside the valid range"
             raise ValueError(msg)
 
         return self
