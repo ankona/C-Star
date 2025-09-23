@@ -291,6 +291,7 @@ class ModelParameterSet(ParameterSet):
 
 class Blueprint(ConfiguredBaseModel):
     """Common elements of all blueprints."""
+
     name: RequiredString
     """A unique, user-friendly name for this blueprint."""
 
@@ -302,6 +303,7 @@ class Blueprint(ConfiguredBaseModel):
 
     state: BlueprintState = BlueprintState.NotSet
     """The current validation status of the blueprint."""
+
 
 class RomsMarblBlueprint(Blueprint):
     """Blueprint schema for running a ROMS-MARBL simulation."""
@@ -332,6 +334,9 @@ class RomsMarblBlueprint(Blueprint):
 
     runtime_params: RuntimeParameterSet
     """User-defined runtime parameters."""
+
+    cdr_input: SingleFileDataset | None = Field(default=None)
+    """Location of CDR input file for this run. Optional. User has more control over this compared to other forcing."""
 
     @model_validator(mode="after")
     def _model_validator(self) -> "RomsMarblBlueprint":

@@ -1,5 +1,6 @@
 import typing as t
 
+from base import InputDataset
 from pydantic import BaseModel
 
 from cstar.base.additional_code import AdditionalCode
@@ -44,7 +45,9 @@ class ModelAdapter(t.Generic[_Tin, _Tout_co], t.Protocol):
         ...
 
 
-class DiscretizationAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSDiscretization]):
+class DiscretizationAdapter(
+    ModelAdapter[models.RomsMarblBlueprint, ROMSDiscretization]
+):
     """Create a ROMSDiscretization from a blueprint model."""
 
     @t.override
@@ -115,7 +118,9 @@ class GridAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSModelGrid]):
         )
 
 
-class InitialConditionAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSInitialConditions]):
+class InitialConditionAdapter(
+    ModelAdapter[models.RomsMarblBlueprint, ROMSInitialConditions]
+):
     """Create a ROMSInitialCondition from a blueprint model."""
 
     @t.override
@@ -159,7 +164,9 @@ class RiverForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSRiverForci
         )
 
 
-class BoundaryForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, list[ROMSBoundaryForcing]]):
+class BoundaryForcingAdapter(
+    ModelAdapter[models.RomsMarblBlueprint, list[ROMSBoundaryForcing]]
+):
     """Create a ROMSBoundaryForcing from a blueprint model."""
 
     @t.override
@@ -175,7 +182,9 @@ class BoundaryForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, list[ROMSBo
         ]
 
 
-class SurfaceForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, list[ROMSSurfaceForcing]]):
+class SurfaceForcingAdapter(
+    ModelAdapter[models.RomsMarblBlueprint, list[ROMSSurfaceForcing]]
+):
     """Create a ROMSSurfaceForcing from a blueprint model."""
 
     @t.override
@@ -191,8 +200,15 @@ class SurfaceForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, list[ROMSSur
         ]
 
 
+class CdrInputAdapter(ModelAdapter[models.RomsMarblBlueprint, InputDataset]):
+    # TODO this is not implemented on the Simulation side yet...
+    @t.override
+    def adapt(self) -> InputDataset:
+        raise NotImplementedError()
+
+
 class ForcingCorrectionAdapter(
-    ModelAdapter[models.Blueprint, list[ROMSForcingCorrections]]
+    ModelAdapter[models.RomsMarblBlueprint, list[ROMSForcingCorrections]]
 ):
     @t.override
     def adapt(self) -> list[ROMSForcingCorrections] | None:
