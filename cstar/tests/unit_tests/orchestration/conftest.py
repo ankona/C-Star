@@ -61,6 +61,9 @@ def model_to_yaml(model: BaseModel) -> str:
         return dumper.represent_scalar("tag:yaml.org,2002:str", str(data))
 
     dumper = yaml.Dumper
+    dumper.ignore_aliases = (
+        lambda *_args: True
+    )  # pyright: ignore[reportAttributeAccessIssue]
 
     dumper.add_representer(pathlib.PosixPath, path_representer)
     dumper.add_representer(WorkplanState, workplanstate_representer)
@@ -456,33 +459,37 @@ def fill_blueprint_template(
               marbl: null
             forcing:
               boundary:
-                documentation: http://mockdoc.com/partitioning
-                locked: false
-                files:
-                - location: http://mockdoc.com/partitioning.nc
-                  hash: abc123
+                data:
+                  - location: http://mockdoc.com/partitioning1.nc
+                    hash: abc
+                  - location: http://mockdoc.com/partitioning2.nc
+                    hash: pqr
+                  - location: http://mockdoc.com/partitioning3.nc
+                    hash: xyz
               surface:
                 documentation: http://mockdoc.com/partitioning
                 locked: false
-                files:
-                - location: http://mockdoc.com/partitioning.nc
-                  hash: abc123
+                data:
+                  - location: http://mockdoc.com/partitioning.nc
+                    hash: abc123
               corrections:
                 documentation: http://mockdoc.com/partitioning
                 locked: false
-                files:
-                - location: http://mockdoc.com/partitioning.nc
-                  hash: abc123
+                data:
+                  - location: http://mockdoc.com/partitioning.nc
+                    hash: abc123
               tidal:
                 documentation: http://mockdoc.com/partitioning
                 locked: false
-                location: http://mockdoc.com/partitioning.nc
-                hash: abc123
+                data:
+                  location: http://mockdoc.com/partitioning.nc
+                  hash: abc123
               river:
                 documentation: http://mockdoc.com/partitioning
                 locked: false
-                location: http://mockdoc.com/partitioning.nc
-                hash: abc123
+                data:
+                  location: http://mockdoc.com/partitioning.nc
+                  hash: abc123
             partitioning:
               documentation: http://mockdoc.com/partitioning
               hash: null
@@ -502,9 +509,12 @@ def fill_blueprint_template(
               checkpoint_frequency: 1d
               output_dir: .
             grid:
-              location: http://mockdoc.com/grid
+              documentation: http://mockdoc.com/model-params
+              data:
+                location: http://mockdoc.com/grid
             initial_conditions:
-              location: http://mockdoc.com/grid
+              data:
+                location: http://mockdoc.com/grid
             model_params:
               time_step: 1
             """,

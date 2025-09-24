@@ -3,7 +3,6 @@ from copy import deepcopy
 from datetime import datetime
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import Annotated
 
 from pydantic import (
     BaseModel,
@@ -45,13 +44,14 @@ class ConfiguredBaseModel(BaseModel):
     """Pydantic ConfigDict with options we want changed."""
 
 
-class HashableFile(ConfiguredBaseModel):
-    """A file that can be retrieved, with an optional hash check"""
-
+class Resource(ConfiguredBaseModel):
     location: FilePath | HttpUrl
     """Location of the file to retrieve."""
-    hash: str | None = Field(default=None, init=False, validate_default=False)
-    """Optional, expected hash of the file."""
+
+
+class VersionedResource(Resource):
+    hash: RequiredString
+    """Expected hash of the file."""
 
 
 class DocLocMixin(ConfiguredBaseModel):
@@ -64,14 +64,13 @@ class DocLocMixin(ConfiguredBaseModel):
     """Mutability of the parameter set."""
 
 
-class SingleFileDataset(HashableFile, DocLocMixin):
-    """A dataset that can be documented/locked that consists of a single file."""
+DataResource: t.TypeAlias = Resource | VersionedResource
+
+_T = t.TypeVar("_T", DataResource, list[DataResource])
 
 
-class MultiFileDataset(DocLocMixin, ConfiguredBaseModel):
-    """A dataset that can be documented/locked that consists of a multiple files."""
-
-    files: Annotated[list[HashableFile], Field(min_length=1)]
+class Dataset(DocLocMixin, t.Generic[_T]):
+    data: _T
 
 
 class PathFilter(ConfiguredBaseModel):
@@ -90,19 +89,21 @@ class PathFilter(ConfiguredBaseModel):
 class ForcingConfiguration(ConfiguredBaseModel):
     """Configuration of the forcing parameters of the model."""
 
-    boundary: MultiFileDataset
+    boundary: Dataset[list[DataResource]]
     """Boundary forcing."""
 
-    surface: MultiFileDataset
+    surface: Dataset[list[DataResource]]
     """Surface forcing"""
 
-    tidal: SingleFileDataset | None = Field(default=None, validate_default=False)
+    tidal: Dataset[DataResource] | None = Field(default=None, validate_default=False)
     """Tidal forcing."""
 
-    river: SingleFileDataset | None = Field(default=None, validate_default=False)
+    river: Dataset[DataResource] | None = Field(default=None, validate_default=False)
     """River forcing."""
 
-    corrections: MultiFileDataset | None = Field(default=None, validate_default=False)
+    corrections: Dataset[list[DataResource]] | None = Field(
+        default=None, validate_default=False
+    )
     """Wind or other forcing corrections."""
 
 
@@ -306,7 +307,7 @@ class Blueprint(ConfiguredBaseModel):
     """The current validation status of the blueprint."""
 
 
-class RomsMarblBlueprint(Blueprint):
+class RomsMarblBlueprint(Blueprint, ConfiguredBaseModel):
     """Blueprint schema for running a ROMS-MARBL simulation."""
 
     valid_start_date: datetime
@@ -318,10 +319,10 @@ class RomsMarblBlueprint(Blueprint):
     code: ROMSCompositeCodeRepository
     """Code repositories used to build, configure, and execute the ROMS simulation."""
 
-    initial_conditions: SingleFileDataset
+    initial_conditions: Dataset[DataResource]
     """File containing the starting conditions of the simulation."""
 
-    grid: SingleFileDataset
+    grid: Dataset[DataResource]
     """File defining the grid geometry."""
 
     forcing: ForcingConfiguration
@@ -336,7 +337,7 @@ class RomsMarblBlueprint(Blueprint):
     runtime_params: RuntimeParameterSet
     """User-defined runtime parameters."""
 
-    cdr_input: SingleFileDataset | None = Field(default=None)
+    cdr_input: Dataset[DataResource] | None = Field(default=None)
     """Location of CDR input file for this run. Optional. User has more control over this compared to other forcing."""
 
     @model_validator(mode="after")

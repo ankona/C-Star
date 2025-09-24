@@ -34,7 +34,7 @@ class ModelAdapter(t.Generic[_Tin, _Tout_co], t.Protocol):
     def __init__(self, model: _Tin) -> None:
         self.model = model
 
-    def adapt(self) -> _Tout_co:
+    def adapt(self) -> _Tout_co | None:
         """Adapt the source model to the target output type.
 
         Returns
@@ -71,7 +71,7 @@ class AddtlCodeAdapter(ModelAdapter[models.RomsMarblBlueprint, AdditionalCode]):
         code_attr: models.CodeRepository = getattr(self.model.code, self.key)
 
         return AdditionalCode(
-            location=code_attr.location,
+            location=str(code_attr.location),
             subdir=(str(code_attr.filter.directory) if code_attr.filter else ""),
             checkout_target=code_attr.checkout_target,
             files=(code_attr.filter.files if code_attr.filter else []),
@@ -111,8 +111,12 @@ class GridAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSModelGrid]):
     @t.override
     def adapt(self) -> ROMSModelGrid:
         return ROMSModelGrid(
-            location=self.model.grid.location,
-            file_hash=self.model.grid.hash,
+            location=str(self.model.grid.data.location),
+            file_hash=(
+                self.model.grid.data.hash
+                if isinstance(self.model.grid.data, models.VersionedResource)
+                else None
+            ),
             start_date=self.model.valid_start_date,
             end_date=self.model.valid_end_date,
         )
@@ -126,8 +130,14 @@ class InitialConditionAdapter(
     @t.override
     def adapt(self) -> ROMSInitialConditions:
         return ROMSInitialConditions(
-            location=self.model.initial_conditions.location,
-            file_hash=self.model.initial_conditions.hash,
+            location=str(self.model.initial_conditions.data.location),
+            file_hash=(
+                self.model.initial_conditions.data.hash
+                if isinstance(
+                    self.model.initial_conditions.data, models.VersionedResource
+                )
+                else None
+            ),
             start_date=self.model.valid_start_date,
             end_date=self.model.valid_end_date,
         )
@@ -141,8 +151,12 @@ class TidalForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSTidalForci
         if self.model.forcing.tidal is None:
             return None
         return ROMSTidalForcing(
-            location=self.model.forcing.tidal.location,
-            file_hash=self.model.forcing.tidal.hash,
+            location=str(self.model.forcing.tidal.data.location),
+            file_hash=(
+                self.model.forcing.tidal.data.hash
+                if isinstance(self.model.forcing.tidal.data, models.VersionedResource)
+                else None
+            ),
             start_date=self.model.valid_start_date,
             end_date=self.model.valid_end_date,
         )
@@ -157,8 +171,12 @@ class RiverForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSRiverForci
             return None
 
         return ROMSRiverForcing(
-            location=self.model.forcing.river.location,
-            file_hash=self.model.forcing.river.hash,
+            location=str(self.model.forcing.river.data.location),
+            file_hash=(
+                self.model.forcing.river.data.hash
+                if isinstance(self.model.forcing.river.data, models.VersionedResource)
+                else None
+            ),
             start_date=self.model.valid_start_date,
             end_date=self.model.valid_end_date,
         )
@@ -173,12 +191,12 @@ class BoundaryForcingAdapter(
     def adapt(self) -> list[ROMSBoundaryForcing]:
         return [
             ROMSBoundaryForcing(
-                location=f.location,
-                file_hash=f.hash,
+                location=str(f.location),
+                file_hash=(f.hash if isinstance(f, models.VersionedResource) else None),
                 start_date=self.model.valid_start_date,
                 end_date=self.model.valid_end_date,
             )
-            for f in self.model.forcing.boundary.files
+            for f in self.model.forcing.boundary.data
         ]
 
 
@@ -191,12 +209,12 @@ class SurfaceForcingAdapter(
     def adapt(self) -> list[ROMSSurfaceForcing]:
         return [
             ROMSSurfaceForcing(
-                location=f.location,
-                file_hash=f.hash,
+                location=str(f.location),
+                file_hash=(f.hash if isinstance(f, models.VersionedResource) else None),
                 start_date=self.model.valid_start_date,
                 end_date=self.model.valid_end_date,
             )
-            for f in self.model.forcing.surface.files
+            for f in self.model.forcing.surface.data
         ]
 
 
@@ -216,12 +234,12 @@ class ForcingCorrectionAdapter(
             return None
         return [
             ROMSForcingCorrections(
-                location=f.location,
-                file_hash=f.hash,
+                location=str(f.location),
+                file_hash=(f.hash if isinstance(f, models.VersionedResource) else None),
                 start_date=self.model.valid_start_date,
                 end_date=self.model.valid_end_date,
             )
-            for f in self.model.forcing.corrections.files
+            for f in self.model.forcing.corrections.data
         ]
 
 
