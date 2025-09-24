@@ -132,8 +132,10 @@ class InitialConditionAdapter(
         return ROMSInitialConditions(
             location=str(self.model.initial_conditions.data.location),
             file_hash=(
-                self.model.grid.data.hash
-                if isinstance(self.model.grid.data, models.VersionedResource)
+                self.model.initial_conditions.data.hash
+                if isinstance(
+                    self.model.initial_conditions.data, models.VersionedResource
+                )
                 else None
             ),
             start_date=self.model.valid_start_date,
@@ -151,8 +153,8 @@ class TidalForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSTidalForci
         return ROMSTidalForcing(
             location=str(self.model.forcing.tidal.data.location),
             file_hash=(
-                self.model.grid.data.hash
-                if isinstance(self.model.grid.data, models.VersionedResource)
+                self.model.forcing.tidal.data.hash
+                if isinstance(self.model.forcing.tidal.data, models.VersionedResource)
                 else None
             ),
             start_date=self.model.valid_start_date,
@@ -171,8 +173,8 @@ class RiverForcingAdapter(ModelAdapter[models.RomsMarblBlueprint, ROMSRiverForci
         return ROMSRiverForcing(
             location=str(self.model.forcing.river.data.location),
             file_hash=(
-                self.model.grid.data.hash
-                if isinstance(self.model.grid.data, models.VersionedResource)
+                self.model.forcing.river.data.hash
+                if isinstance(self.model.forcing.river.data, models.VersionedResource)
                 else None
             ),
             start_date=self.model.valid_start_date,
