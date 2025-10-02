@@ -111,6 +111,8 @@ def fake_additionalcode_local() -> AdditionalCode:
 ################################################################################
 # ExternalCodeBase
 ################################################################################
+
+
 @pytest.fixture
 def fake_externalcodebase(
     log: logging.Logger,
