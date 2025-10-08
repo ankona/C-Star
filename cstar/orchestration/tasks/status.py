@@ -13,7 +13,7 @@ from cstar.orchestration.orchestrator import (
     Task,
 )
 from cstar.orchestration.tasks.core import CstarIncompleteError
-from cstar.orchestration.tasks.requests import (
+from cstar.orchestration.tasks.request import (
     CheckProcessStatusRequest,
     CheckSlurmStatusRequest,
     CheckStatusRequest,
@@ -171,8 +171,9 @@ if __name__ == "__main__":
     """Execute the flow to submit a job to SLURM."""
     job_id = os.environ.get("SLURM_JOB_ID", "")
     task_id = os.environ.get("TASK_ID", "")  # TODO: fix this nonsense
+    task_name = os.environ.get("TASK_NAME", "")  # TODO: fix this empty value
 
-    request = CheckSlurmStatusRequest(job_id, task_id)
+    request = CheckSlurmStatusRequest(name=task_name, job_id=job_id, task_id=task_id)
     status_results = handle_request(request)
 
     print(f"Status check result: {status_results}")

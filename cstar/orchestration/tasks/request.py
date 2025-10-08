@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 
 class Request(BaseModel):
-    request_id: uuid.UUID = Field(default_factory=uuid.uuid4, frozen=True)
+    request_id: uuid.UUID = Field(default_factory=uuid.uuid4, frozen=True, init=False)
     """Unique identifier of a request."""
 
 
