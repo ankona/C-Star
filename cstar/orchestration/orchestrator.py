@@ -461,19 +461,18 @@ class Launcher:
         state_transition_threshold = 4  # test-only: query a few times before transition
 
         # names = {t.name for t in items}
-        statuses: dict[str, TaskStatus] = dict(
-            (
-                task.name,
+        statuses: dict[str, TaskStatus] = {
+            task.name: (
                 (
                     self.tasks[task.name].status
                     if self.check_counts[task.name] < state_transition_threshold
                     else TaskStatus.Done
                 )
                 if task.name in self.tasks
-                else TaskStatus.Unknown,
+                else TaskStatus.Unknown
             )
             for task in items
-        )
+        }
 
         # test-only: auto-transition using number of checks done on each task.
         for k in self.tasks:
