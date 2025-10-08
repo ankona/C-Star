@@ -526,10 +526,20 @@ def fill_blueprint_template(
     return _get_blueprint_template
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def prefect_server() -> t.Generator[sub.Popen]:
-    process = sub.Popen(
-        "prefect profile use ephemeral && prefect server start".split(), text=True
+    process = sub.Popen(  # noqa: S603
+        [  # noqa: S607
+            "prefect",
+            "profile",
+            "use",
+            "ephemeral",
+            "&&",
+            "prefect",
+            "server",
+            "start",
+        ],
+        text=True,
     )
     yield process
     process.kill()
