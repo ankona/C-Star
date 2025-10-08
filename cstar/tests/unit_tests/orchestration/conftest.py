@@ -5,7 +5,6 @@ import pathlib
 import subprocess as sub
 import textwrap
 import typing as t
-import uuid
 from pathlib import Path
 
 import pytest
@@ -172,10 +171,11 @@ def gen_fake_steps(tmp_path: Path) -> t.Callable[[int], t.Generator[Step, None, 
 
     def _gen_fake_steps(num_steps: int) -> t.Generator[Step, None, None]:
         """Create `num_steps` fake steps."""
-        for _ in range(num_steps):
-            step_name = f"test-step-{uuid.uuid4()}"
-            app_name = f"test-app-{uuid.uuid4()}"
-            path = tmp_path / f"dummy-blueprint-{uuid.uuid4()}.yml"
+        for i in range(num_steps):
+            unique_part = f"{i + 1:03d}"
+            step_name = f"step-{unique_part}"
+            app_name = f"app-{unique_part}"
+            path = tmp_path / f"blueprint-{unique_part}.yml"
             path.touch()
 
             yield Step(
