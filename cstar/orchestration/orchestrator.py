@@ -1112,18 +1112,14 @@ class GraphPlanner(Planner):
             artifact_dir or Path(),
             layout="bfs",
         )
-        edges: list[tuple[str, str]] = list(
-            nx.bfs_edges(
-                self.graph,
-                GraphPlanner.START_NODE,
-                sort_neighbors=sorted,
-            ),
-        )
-        edges = list(filter(lambda x: x[1] != GraphPlanner.TERMINAL_NODE, edges))
+        sorted_nodes: list[str] = list(nx.topological_sort(self.graph))
 
-        # note: if i convert this node-name list to a new graph with edges, i can
-        # render the serial plan as a graph just like the graph planner...
-        return [self.step_map[edge[1]] for edge in edges]
+        print(f"Ordered plan: {sorted_nodes}")
+        return [
+            self.step_map[node]
+            for node in sorted_nodes
+            if node not in GraphPlanner.control_nodes
+        ]
 
 
 class MonitoredPlanner(GraphPlanner):
