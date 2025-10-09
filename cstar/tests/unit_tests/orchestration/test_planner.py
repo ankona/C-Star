@@ -137,6 +137,7 @@ def test_planner_with_tasks(
     ],
 )
 def test_planner_monitored_deps(
+    tmp_path: Path,
     num_steps: int,
     deps: list[tuple[int, int]],
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
@@ -145,6 +146,8 @@ def test_planner_monitored_deps(
 
     Parameters
     ----------
+    tmp_path : Path
+        A temporary path to store test outputs
     num_steps : int
         The number of steps to add to the workplan
     deps : list[tuple[int, int]]
@@ -167,7 +170,7 @@ def test_planner_monitored_deps(
     )
 
     planner = MonitoredPlanner(plan)
-    proposed_plan = planner.plan()
+    proposed_plan = planner.plan(artifact_dir=tmp_path)
 
     edges = planner.graph.edges
 
@@ -240,6 +243,8 @@ def test_planner_bfs_breaker(
 
     Parameters
     ----------
+    tmp_path : Path
+        A temporary path to store test outputs
     num_steps : int
         The number of steps to add to the workplan
     deps : list[tuple[int, int]]
@@ -267,7 +272,7 @@ def test_planner_bfs_breaker(
     )
 
     planner = GraphPlanner(plan)
-    proposed_plan = planner.plan()
+    proposed_plan = planner.plan(artifact_dir=tmp_path)
 
     edges = planner.graph.edges
 
