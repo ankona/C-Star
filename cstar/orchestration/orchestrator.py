@@ -1008,6 +1008,7 @@ class GraphPlanner(Planner):
         name_map: dict[str, str],
         title: str,
         image_directory: Path,
+        layout: str = "circular",
     ) -> Path:
         """Render the graph to a file."""
         plt.cla()
@@ -1018,8 +1019,23 @@ class GraphPlanner(Planner):
             print(msg)
             return Path("not-found")
 
-        # WARNING: bfs_layout appears to require nx >= 3.5
-        pos = nx.bfs_layout(graph, cls.START_NODE)
+        if layout == "spring":
+            pos = nx.spring_layout(graph)
+        elif layout == "circular":
+            pos = nx.circular_layout(graph)
+        elif layout == "kamada":
+            pos = nx.kamada_kawai_layout(graph)
+        elif layout == "shell":
+            pos = nx.shell_layout(graph)
+        elif layout == "spiral":
+            pos = nx.spiral_layout(graph)
+        elif layout == "planar":
+            pos = nx.planar_layout(graph)
+        elif layout == "fruchterman":
+            pos = nx.fruchterman_reingold_layout(graph)
+        else:
+            # WARNING: bfs_layout appears to require nx >= 3.5
+            pos = nx.bfs_layout(graph, cls.START_NODE)
 
         # Review available graph layout styles
         # pos = nx.kamada_kawai_layout(graph)  # pretty good
@@ -1090,6 +1106,7 @@ class GraphPlanner(Planner):
             self.name_map,
             self.workplan.name,
             artifact_dir or Path(),
+            layout="bfs",
         )
         edges: list[tuple[str, str]] = list(
             nx.bfs_edges(
