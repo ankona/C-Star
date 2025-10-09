@@ -1228,16 +1228,6 @@ class SerialPlanner(Planner):
 
         return planner.plan(artifact_dir)
 
-        # edges: list[tuple[str, str]] = list(
-        #     nx.bfs_edges(
-        #         planner.graph,
-        #         GraphPlanner.START_NODE,
-        #         sort_neighbors=sorted,
-        #     ),
-        # )
-        # edges = list(filter(lambda edge: GraphPlanner.TERMINAL_NODE not in edge, edges))
-        # return [planner.step_map[edge[1]] for edge in edges]
-
     def remove(self, step: Step) -> None:
         index = self._plan.index(step)
 
