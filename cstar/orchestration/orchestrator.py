@@ -839,6 +839,9 @@ class GraphPlanner(Planner):
     TERMINAL_NODE: t.ClassVar[t.Literal["_cstar_term_node"]] = "_cstar_term_node"
     """Fixed name for task graph termination."""
 
+    control_nodes: t.ClassVar[set[str]] = {START_NODE, TERMINAL_NODE}
+    """Return a set containing the control node names."""
+
     NODE_ACTION_KEY: t.ClassVar[t.Literal["action"]] = "action"
     """Fixed name for node attribute containing node behavior."""
 
@@ -870,6 +873,7 @@ class GraphPlanner(Planner):
         self.step_map = {step.name: step for step in workplan.steps}
         self.dep_map = {step.name: step.depends_on for step in workplan.steps}
         self.name_map = {step.name: step.name for step in workplan.steps}
+        self.name_map.update({self.START_NODE: "start", self.TERMINAL_NODE: "end"})
 
         self.graph = self._workplan_to_graph()
 
@@ -937,23 +941,28 @@ class GraphPlanner(Planner):
             A copy of the original graph with the entrypoint node inserted
         """
         graph = t.cast("nx.DiGraph", graph.copy())
-        marker_nodes = {cls.START_NODE, cls.TERMINAL_NODE}
 
         if cls.START_NODE not in graph.nodes:
             graph.add_node(
-                cls.START_NODE, **{cls.NODE_ACTION_KEY: cls.NODE_BEHAVIOR_START}
+                cls.START_NODE,
+                **{cls.NODE_ACTION_KEY: cls.NODE_BEHAVIOR_START},
             )
+        else:
+            graph.nodes[cls.START_NODE][cls.NODE_ACTION_KEY] = cls.NODE_BEHAVIOR_START
 
         if cls.TERMINAL_NODE not in graph.nodes:
             graph.add_node(
-                cls.TERMINAL_NODE, **{cls.NODE_ACTION_KEY: cls.NODE_BEHAVIOR_TERM}
+                cls.TERMINAL_NODE,
+                **{cls.NODE_ACTION_KEY: cls.NODE_BEHAVIOR_TERM},
             )
+        else:
+            graph.nodes[cls.TERMINAL_NODE][cls.NODE_ACTION_KEY] = cls.NODE_BEHAVIOR_TERM
 
         # find steps with no dependencies, allowing immediate start
         no_dep_edges = [
             (cls.START_NODE, node)
             for node in graph.nodes()
-            if graph.in_degree(node) == 0 and node not in marker_nodes
+            if graph.in_degree(node) == 0 and node not in cls.control_nodes
         ]
 
         # Add edges from the  start node to all independent steps
