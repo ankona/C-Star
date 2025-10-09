@@ -64,20 +64,24 @@ class Task:
         self.state_bag = {}
 
         if isinstance(source, Step):
-            self.task_id = uuid.uuid4()
+            self.task_id = uuid.uuid1()
         elif isinstance(source, ProcessHandle):
             self._from_handle(source)
 
     def _from_handle(self, handle: ProcessHandle) -> psutil.Process:
         process = psutil.Process(handle.pid)
-        if process.create_time != handle.created_on:
-            raise RuntimeError("process is already re-used...")
-            # todo: handle this gracefully later...
+        # TODO: get rid of this and use prefect as proxy
+        # if process.create_time != handle.created_on:
+        #     msg = "PID has been re-used. Unable to determine return code."
+        #     raise RuntimeError(msg)
+        #     # todo: handle this gracefully later...
 
-        self.process = process
+        # self.process = process
         self.task_id = handle.key
         self.create_time = handle.created_on
         self.pid = handle.pid
+
+        return process
 
     @property
     def name(self) -> str:
@@ -809,6 +813,10 @@ class Planner(t.Protocol):
     def remove(self, step: Step) -> None:
         """Remove the step from the plan."""
 
+    def plan(self) -> list[Step]:
+        """Return the complete plan."""
+        ...
+
 
 class GraphPlanner(Planner):
     """Convert workplans into task graphs and manage their execution."""
@@ -828,30 +836,74 @@ class GraphPlanner(Planner):
     START_NODE: t.ClassVar[t.Literal["_cstar_start_node"]] = "_cstar_start_node"
     """Fixed name for task graph entrypoint."""
 
+    TERMINAL_NODE: t.ClassVar[t.Literal["_cstar_term_node"]] = "_cstar_term_node"
+    """Fixed name for task graph termination."""
+
+    NODE_ACTION_KEY: t.ClassVar[t.Literal["action"]] = "action"
+    """Fixed name for node attribute containing node behavior."""
+
+    NODE_BEHAVIOR_TASK: t.ClassVar[t.Literal["task"]] = "task"
+    NODE_BEHAVIOR_START: t.ClassVar[t.Literal["start"]] = "start"
+    NODE_BEHAVIOR_TERM: t.ClassVar[t.Literal["term"]] = "term"
+
     def __init__(
-        self, workplan: Workplan | None = None, graph: nx.DiGraph | None = None
+        self,
+        workplan: Workplan | None = None,
+        graph: nx.DiGraph | None = None,
     ) -> None:
         if workplan:
             super().__init__(workplan)
 
         if workplan and not graph:
-            self.step_map = {step.name: step for step in workplan.steps}
-            self.dep_map = {step.name: step.depends_on for step in workplan.steps}
-            self.name_map = {step.name: step.name for step in workplan.steps}
-
-            self.graph = self._plan_to_graph()
+            self._initialize_from_plan(workplan)
 
         # note: the graph argument and `if graph` branch are a byproduct of
         #  testing and are not 100% desired. we may need it for loading from
         #  a serialized graph, though (e.g. if state is stored in the graph).
         if graph:
-            self.step_map = {n: n for n in graph.nodes()}
-            self.dep_map = {n: graph.out_edges(n) for n in graph.nodes()}
-            self.name_map = {n: n for n in graph.nodes()}
-            self.name_map[self.START_NODE] = "start"
+            self._initialize_from_graph(graph)
 
-            self._og = graph
-            self.graph = GraphPlanner._add_start_node(graph)
+        self.color_map = GraphPlanner._create_color_map()
+
+    def _initialize_from_plan(self, workplan: Workplan) -> None:
+        """Prepare instance from the supplied workplan."""
+        self.step_map = {step.name: step for step in workplan.steps}
+        self.dep_map = {step.name: step.depends_on for step in workplan.steps}
+        self.name_map = {step.name: step.name for step in workplan.steps}
+
+        self.graph = self._workplan_to_graph()
+
+    def _initialize_from_graph(self, graph: nx.DiGraph) -> None:
+        """Prepare instance from the supplied graph."""
+        # note: the graph argument and `if graph` branch are a byproduct of
+        #  testing and are not 100% desired. we may need it for loading from
+        #  a serialized graph, though (e.g. if state is stored in the graph).
+        p = Path("step")
+        # TODO: ensure the task is serialized onto the nodes to use here.
+        p.touch()
+
+        self.step_map = {
+            n: Step(name=n, application="no-app", blueprint=p) for n in graph.nodes()
+        }
+        self.dep_map = {n: graph.out_edges(n) for n in graph.nodes()}
+        self.name_map = {n: n for n in graph.nodes()}
+        self.name_map.update({self.START_NODE: "start", self.TERMINAL_NODE: "end"})
+
+        self.graph = GraphPlanner._add_marker_nodes(graph)
+
+    @classmethod
+    def _create_color_map(
+        cls,
+        start_color: str = "#00ff00",
+        term_color: str = "#ff0000",
+        task_color: str = "#377aaa",
+        # default_color: str = "#1f78b4",
+    ) -> dict[str, str]:
+        return {
+            GraphPlanner.NODE_BEHAVIOR_START: start_color,
+            GraphPlanner.NODE_BEHAVIOR_TERM: term_color,
+            GraphPlanner.NODE_BEHAVIOR_TASK: task_color,
+        }
 
     def __next__(self) -> Step | None:
         """Return the next available step.
@@ -859,7 +911,7 @@ class GraphPlanner(Planner):
         If steps are blocked due to serial plan execution or dependencies, the
         currently executing step will be returned.
         """
-        if self.workplan:
+        if self.workplan and self.workplan.steps:
             # TODO: this must return something other than the first node.
             return self.workplan.steps[0]
 
@@ -871,9 +923,8 @@ class GraphPlanner(Planner):
         return iter(self.workplan.steps)
 
     @classmethod
-    def _add_start_node(cls, graph: nx.DiGraph) -> nx.DiGraph:
-        """Add a single node to serve as the entrypoint to the task graph with edges
-        to any nodes that have no dependencies.
+    def _add_marker_nodes(cls, graph: nx.DiGraph) -> nx.DiGraph:
+        """Add node to serve as the entrypoint and exit point of the task graph.
 
         Parameters
         ----------
@@ -885,113 +936,218 @@ class GraphPlanner(Planner):
         nx.DiGraph
             A copy of the original graph with the entrypoint node inserted
         """
-        # find all steps with no dependencies, allowing immediate start
         graph = t.cast("nx.DiGraph", graph.copy())
+        marker_nodes = {cls.START_NODE, cls.TERMINAL_NODE}
 
-        edges = [
-            (cls.START_NODE, slug)
-            for slug in graph.nodes()
-            if graph.in_degree(slug) == 0
+        if cls.START_NODE not in graph.nodes:
+            graph.add_node(
+                cls.START_NODE, **{cls.NODE_ACTION_KEY: cls.NODE_BEHAVIOR_START}
+            )
+
+        if cls.TERMINAL_NODE not in graph.nodes:
+            graph.add_node(
+                cls.TERMINAL_NODE, **{cls.NODE_ACTION_KEY: cls.NODE_BEHAVIOR_TERM}
+            )
+
+        # find steps with no dependencies, allowing immediate start
+        no_dep_edges = [
+            (cls.START_NODE, node)
+            for node in graph.nodes()
+            if graph.in_degree(node) == 0 and node not in marker_nodes
         ]
 
-        # Add the start node with edges to all independent steps
-        graph.add_edges_from(edges)
+        # Add edges from the  start node to all independent steps
+        graph.add_edges_from(no_dep_edges)
+
+        # find steps that have no tasks after them
+        terminal_edges = [
+            (node, cls.TERMINAL_NODE)
+            for node in graph.nodes()
+            if graph.out_degree(node) == 0 and node != cls.TERMINAL_NODE
+        ]
+
+        # Add edges from leaf nodes to the terminal node
+        graph.add_edges_from(terminal_edges)
 
         return graph
 
-    def _plan_to_graph(self) -> nx.DiGraph:
+    def _workplan_to_graph(self) -> nx.DiGraph:
         # any node without a dependency can run immediately
         graph: nx.DiGraph = nx.DiGraph(self.dep_map, name=self.workplan.name)
-
-        # find all steps with no dependencies, allowing immediate start
-        start_edges = [
-            (GraphPlanner.START_NODE, slug)
-            for slug in graph.nodes()
-            if graph.in_degree(slug) == 0
-        ]
-
-        # Add the start node with edges to all independent steps
-        graph.add_edges_from(start_edges)
-
-        return graph
-
-    def _color_nodes(
-        self,
-        start_color: str = "#00ff00",
-        term_color: str = "#ff0000",
-        default_color: str = "#1f78b4",
-    ) -> None:
-        """Set an attribute on graph nodes to specify their color when rendered."""
-        if "color" in self.graph.nodes[GraphPlanner.START_NODE]:
-            return
-
-        terminal_nodes = [n for n in self.graph if self.graph.out_degree(n) == 0]
-        for n in terminal_nodes:
-            self.graph.nodes[n]["color"] = term_color
-
-        uncolored = (
-            value for _, value in self.graph.nodes.data() if "color" not in value
+        nx.set_node_attributes(
+            graph, GraphPlanner.NODE_BEHAVIOR_TASK, GraphPlanner.NODE_ACTION_KEY
         )
-        for node_data in uncolored:
-            node_data["color"] = default_color
 
-        self.graph.nodes[GraphPlanner.START_NODE]["color"] = start_color
+        return GraphPlanner._add_marker_nodes(graph)
 
-    def render(self, image_directory: Path) -> Path:
+    @classmethod
+    def _get_color_map(
+        cls,
+        group_map: dict[str, str],
+        graph: nx.DiGraph,
+    ) -> tuple[str, ...]:
+        return tuple(
+            group_map[node_data[cls.NODE_ACTION_KEY]]
+            for node, node_data in graph.nodes(data=True)
+        )
+
+    @classmethod
+    def render(
+        cls,
+        graph: nx.DiGraph,
+        group_map: dict[str, str],
+        name_map: dict[str, str],
+        title: str,
+        image_directory: Path,
+    ) -> Path:
         """Render the graph to a file."""
         plt.cla()
         plt.clf()
 
+        if cls.START_NODE not in graph:
+            msg = "Start node was not found. Graph will not be rendered."
+            print(msg)
+            return Path("not-found")
+
         # WARNING: bfs_layout appears to require nx >= 3.5
-        pos = nx.bfs_layout(self.graph, self.START_NODE)
+        pos = nx.bfs_layout(graph, cls.START_NODE)
 
         # Review available graph layout styles
-        # pos = nx.kamada_kawai_layout(self.graph)  # pretty good
-        # pos = nx.spring_layout(self.graph) # barf? adjust weight?
-        # pos = nx.shell_layout(self.graph) # not bad
-        # pos = nx.circular_layout(self.graph) # not bad
+        # pos = nx.kamada_kawai_layout(graph)  # pretty good
+        # pos = nx.spring_layout(graph) # barf? adjust weight?
+        # pos = nx.shell_layout(graph)  # not bad
+        # pos = nx.circular_layout(graph) # not bad
         # pos = nx.planar_layout(self.graph, scale=-1)  # meh
-        # pos = nx.spiral_layout(self.graph) # weird
-        # pos = nx.random_layout(self.graph)  # trash
-        # pos = nx.spectral_layout(self.graph) # bad
+        # pos = nx.spiral_layout(graph) # weird
+        # pos = nx.random_layout(graph)  # trash
+        # pos = nx.spectral_layout(graph) # bad
         # pos = nx.multipartite_layout(self.graph, "color") # breaks
-        # pos = nx.fruchterman_reingold_layout(self.graph) # nope
+        # pos = nx.fruchterman_reingold_layout(graph) # nope
         # consider moving graph render into another componentdl
-        self._color_nodes()
 
-        node_colors = [
-            node_data["color"] for _, node_data in self.graph.nodes(data=True)
-        ]
+        node_colors = cls._get_color_map(group_map, graph)
 
-        nx.draw(
-            self.graph,
-            node_color=node_colors,
-            pos=pos,
-            with_labels=False,
-            node_size=2000,
-            edgecolors="#000000",
-        )
-        nx.draw_networkx_labels(
-            self.graph,
+        # nx.draw(
+        #     graph,
+        #     node_color=node_colors,
+        #     pos=pos,
+        #     with_labels=False,
+        #     node_size=2000,
+        #     edgecolors="#000000",
+        # )
+        # nx.draw_networkx_labels(
+        #     graph,
+        #     pos,
+        #     name_map,
+        #     clip_on=False,
+        #     font_size=8,
+        # )
+
+        nx.draw_networkx(
+            graph,
             pos,
-            self.name_map,
-            clip_on=False,
-            font_size=8,
+            with_labels=True,
+            labels=name_map,
+            node_size=2000,
+            node_color=node_colors,
         )
 
-        write_to = image_directory / f"{slugify(self.workplan.name)}.png"
-        plt.savefig(write_to, bbox_inches="tight", dpi=300)
+        plt.legend()
+        plt.tight_layout(pad=2.0)
+
+        write_to = image_directory / f"{slugify(title)}.png"
+        plt.savefig(write_to, bbox_inches="tight", dpi=300)  # was "tight"
 
         return write_to
 
     def remove(self, step: Step) -> None:
         self.graph.remove_node(step.name)
 
+    def plan(
+        self,
+        artifact_dir: Path | None = None,  # TODO: debug only? remove
+    ) -> list[Step]:
+        """Create a plan specifying the desired execution order of all tasks.
+
+        Builds a task graph and flatten using a breadth-first traversal
+        to ensure dependency order.
+        """
+        if not self.graph and GraphPlanner.START_NODE not in self.graph.nodes:
+            return []
+
+        self.render(
+            self.graph,
+            self.color_map,
+            self.name_map,
+            self.workplan.name,
+            artifact_dir or Path(),
+        )
+        edges: list[tuple[str, str]] = list(
+            nx.bfs_edges(
+                self.graph,
+                GraphPlanner.START_NODE,
+                sort_neighbors=sorted,
+            ),
+        )
+        edges = list(filter(lambda x: x[1] != GraphPlanner.TERMINAL_NODE, edges))
+
+        # note: if i convert this node-name list to a new graph with edges, i can
+        # render the serial plan as a graph just like the graph planner...
+        return [self.step_map[edge[1]] for edge in edges]
+
+
+class MonitoredPlanner(GraphPlanner):
+    original: nx.DiGraph
+
+    NODE_BEHAVIOR_MONITOR: t.ClassVar[t.Literal["monitor"]] = "monitor"
+    NAME_PREFIX: t.ClassVar[t.Literal["m-"]] = "m-"
+
+    def __init__(
+        self, workplan: Workplan | None = None, graph: nx.DiGraph | None = None
+    ) -> None:
+        super().__init__(workplan, graph)
+
+        graph = self.graph.copy()
+        self.original = graph.copy()
+        monitored_graph = self._augment(graph)
+        self._initialize_from_graph(monitored_graph)
+        self.color_map.update({MonitoredPlanner.NODE_BEHAVIOR_MONITOR: "#d0a04e"})
+
+    @classmethod
+    def derive_name(cls, node: str) -> str:
+        return f"{cls.NAME_PREFIX}{node}"
+
+    @classmethod
+    def _augment(cls, og: nx.DiGraph) -> nx.DiGraph:
+        """Modify the original graph to have a monitoring layer."""
+        tasks = og.copy()
+
+        monitor_labels = {
+            node: cls.derive_name(node)
+            for node in og.nodes
+            if node not in {GraphPlanner.START_NODE, GraphPlanner.TERMINAL_NODE}
+        }
+
+        monitors = nx.relabel_nodes(
+            og.subgraph(monitor_labels), monitor_labels, copy=True
+        )
+        nx.set_node_attributes(
+            monitors, cls.NODE_BEHAVIOR_MONITOR, GraphPlanner.NODE_ACTION_KEY
+        )
+
+        combo = nx.union(tasks, monitors)
+
+        # require the job to be scheduled before the monitor can start
+        monitor_edges = list(monitor_labels.items())
+        combo.add_edges_from(monitor_edges)
+
+        return combo
+
 
 class SerialPlanner(Planner):
-    """Plan a serialized path through the tasks in a Workplan."""
+    """Plan a serialized path thrgh the tasks in a Workplan."""
 
-    plan: list[Step]
+    _plan: list[Step]
 
     def __init__(
         self,
@@ -1001,7 +1157,7 @@ class SerialPlanner(Planner):
     ) -> None:
         """Prepare the execution plan"""
         super().__init__(workplan)
-        self.plan = SerialPlanner._create_plan(
+        self._plan = SerialPlanner._create_plan(
             workplan,
             graph,
             artifact_dir=artifact_dir,
@@ -1018,30 +1174,33 @@ class SerialPlanner(Planner):
         to ensure dependency order.
         """
         planner = GraphPlanner(plan, graph=graph)
-        planner.render(artifact_dir or Path())
-        edges = list(
-            nx.bfs_edges(
-                planner.graph,
-                GraphPlanner.START_NODE,
-                sort_neighbors=sorted,
-            ),
-        )
 
-        # note: if i convert this node-name list to a new graph with edges, i can
-        # render the serial plan as a graph just like the graph planner...
-        return [planner.step_map[edge[1]] for edge in edges]
+        if not planner.graph and GraphPlanner.START_NODE not in planner.graph.nodes:
+            return []
+
+        return planner.plan(artifact_dir)
+
+        # edges: list[tuple[str, str]] = list(
+        #     nx.bfs_edges(
+        #         planner.graph,
+        #         GraphPlanner.START_NODE,
+        #         sort_neighbors=sorted,
+        #     ),
+        # )
+        # edges = list(filter(lambda edge: GraphPlanner.TERMINAL_NODE not in edge, edges))
+        # return [planner.step_map[edge[1]] for edge in edges]
 
     def remove(self, step: Step) -> None:
-        index = self.plan.index(step)
+        index = self._plan.index(step)
 
         if index == -1:
             # TODO: consider just warning with logger?
             msg = "Step not found in planner"
             raise ValueError(msg)
 
-        if -1 < index < len(self.plan):
+        if -1 < index < len(self._plan):
             # TODO: log this as a warning if out of range.
-            self.plan.pop(index)
+            self._plan.pop(index)
 
     def __next__(self) -> Step | None:
         """Return the next available step.
@@ -1049,14 +1208,18 @@ class SerialPlanner(Planner):
         If steps are blocked due to serial plan execution or dependencies, the
         currently executing step will be returned.
         """
-        if self.plan:
-            return self.plan[0]
+        if self._plan:
+            return self._plan[0]
 
         return None
 
     def __iter__(self) -> t.Iterator[Step]:
         """Return an iterator over the planner's steps."""
-        return iter(self.plan)
+        return iter(self.plan())
+
+    def plan(self) -> list[Step]:
+        """Create a plan specifying the desired execution order of all tasks."""
+        return self._plan
 
 
 class Orchestrator:
