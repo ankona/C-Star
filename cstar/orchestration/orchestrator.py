@@ -1009,8 +1009,10 @@ class GraphPlanner(Planner):
         title: str,
         image_directory: Path,
         layout: str = "circular",
+        cmap: str = "",
     ) -> Path:
         """Render the graph to a file."""
+        plt.figure(1, figsize=(11, 8))
         plt.cla()
         plt.clf()
 
@@ -1074,14 +1076,16 @@ class GraphPlanner(Planner):
             with_labels=True,
             labels=name_map,
             node_size=2000,
-            node_color=node_colors,
+            node_color=range(len(graph.nodes)) if cmap else node_colors,
+            font_weight="bold",
+            cmap=cmap if cmap else None,
         )
 
         plt.legend()
         plt.tight_layout(pad=2.0)
 
         write_to = image_directory / f"{slugify(title)}.png"
-        plt.savefig(write_to, bbox_inches="tight", dpi=300)  # was "tight"
+        plt.savefig(write_to, bbox_inches="tight", dpi=500)  # was "tight"
 
         return write_to
 
