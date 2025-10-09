@@ -986,7 +986,6 @@ class GraphPlanner(Planner):
         nx.set_node_attributes(
             graph, GraphPlanner.NODE_BEHAVIOR_TASK, GraphPlanner.NODE_ACTION_KEY
         )
-
         return GraphPlanner._add_marker_nodes(graph)
 
     @classmethod
@@ -1114,6 +1113,29 @@ class GraphPlanner(Planner):
         )
         sorted_nodes: list[str] = list(nx.topological_sort(self.graph))
 
+        g_plan = nx.DiGraph(
+            [
+                (sorted_nodes[n], sorted_nodes[n + 1])
+                for n in range(len(sorted_nodes) - 1)
+            ],
+        )
+        nx.set_node_attributes(
+            g_plan.subgraph(
+                n for n in g_plan.nodes if n not in GraphPlanner.control_nodes
+            ),
+            GraphPlanner.NODE_BEHAVIOR_TASK,
+            GraphPlanner.NODE_ACTION_KEY,
+        )
+        g_plan = self._add_marker_nodes(g_plan)
+        self.render(
+            g_plan,
+            self.color_map,
+            self.name_map,
+            f"plan-{self.workplan.name}",
+            artifact_dir or Path(),
+            layout="circular",
+            cmap="Oranges",
+        )
         print(f"Ordered plan: {sorted_nodes}")
         return [
             self.step_map[node]
