@@ -145,12 +145,10 @@ def test_planner_monitored_deps(
 
     Parameters
     ----------
-    planner_type : type[Planner]
-        The type of planner to test
     num_steps : int
         The number of steps to add to the workplan
-    node_fn : Callable[[Workplan], int]
-        A function that takes a workplan as input and returns the size of the plan
+    deps : list[tuple[int, int]]
+        Tuples containing indices of tasks to create dependencies between
     gen_fake_steps : t.Callable[[int], t.Generator[Step, None, None]]
         A generator function to produce minimally valid test steps
 
@@ -193,6 +191,94 @@ def test_planner_monitored_deps(
 
         to_check.append(dep_task_to_monitor)
         to_check.append(dep_monitor_to_monitor)
+
+    # Confirm that the serialized version of the plan honors all the dependencies
+    step_names = [t.name for t in proposed_plan]
+    for n_from, n_to in to_check:
+        from_idx = step_names.index(n_from)
+        to_idx = step_names.index(n_to)
+
+        assert from_idx < to_idx, (
+            f"Dependency between {n_from} and {n_to} was not honored"
+        )
+
+
+@pytest.mark.parametrize(
+    ("num_steps", "deps"),
+    [
+        (
+            10,
+            [
+                (0, 1),
+                (1, 2),
+                (2, 3),
+                (3, 5),
+                (0, 4),
+                (3, 4),
+                (4, 5),
+                (5, 6),
+                (6, 7),
+                (7, 8),
+                (8, 9),
+            ],
+        ),
+    ],
+)
+def test_planner_bfs_breaker(
+    num_steps: int,
+    deps: list[tuple[int, int]],
+    gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
+) -> None:
+    """Verify that a dependency that breaks BFS ordering is honored.
+
+    Parameters
+    ----------
+    num_steps : int
+        The number of steps to add to the workplan
+    deps : list[tuple[int, int]]
+        Tuples containing indices of tasks to create dependencies between
+    gen_fake_steps : t.Callable[[int], t.Generator[Step, None, None]]
+        A generator function to produce minimally valid test steps
+
+    """
+    # Ensure the direct link from task 01 to task 04 is not evaluated until
+    # after 03 is complete (4 requires 0 and 3 to be complete)
+    #   ________ O4
+    #  [          \
+    # O0--O1--O2--O3--05-->End
+
+    # TODO: make a "fan out" that only has one of many items having follow-up tasks
+
+    assert num_steps >= 2, "Test assumes at least two tasks"  # noqa: PLR2004
+
+    steps = list(gen_fake_steps(num_steps))
+
+    for source, target in deps:
+        steps[source].depends_on.append(steps[target].name)
+
+    plan = Workplan(
+        name="test-plan",
+        description="test-description",
+        steps=steps,
+    )
+
+    planner = GraphPlanner(plan)
+    proposed_plan = planner.plan()
+
+    edges = planner.graph.edges
+
+    to_check: list[tuple[str, str]] = []
+
+    # confirm the graph contains an edge for all the dependencies that were added
+    for source, target in deps:
+        source_name = f"step-{source + 1:03d}"
+        target_name = f"step-{target + 1:03d}"
+
+        # verify there is a dependency in the graph
+        edge = (source_name, target_name)
+        assert edge in edges
+
+        to_check.append(edge)
 
     # Confirm that the serialized version of the plan honors all the dependencies
     step_names = [t.name for t in proposed_plan]
