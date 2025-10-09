@@ -206,7 +206,7 @@ def test_planner_monitored_deps(
 @pytest.mark.parametrize(
     ("num_steps", "deps"),
     [
-        (
+        pytest.param(
             10,
             [
                 (0, 1),
@@ -221,10 +221,17 @@ def test_planner_monitored_deps(
                 (7, 8),
                 (8, 9),
             ],
+            id="BFS fail",
+        ),
+        pytest.param(
+            6,
+            [(0, 4), (1, 4), (2, 4), (3, 4), (4, 5)],
+            id="fan out",
         ),
     ],
 )
 def test_planner_bfs_breaker(
+    tmp_path: Path,
     num_steps: int,
     deps: list[tuple[int, int]],
     gen_fake_steps: t.Callable[[int], t.Generator[Step, None, None]],
@@ -246,9 +253,6 @@ def test_planner_bfs_breaker(
     #   ________ O4
     #  [          \
     # O0--O1--O2--O3--05-->End
-
-    # TODO: make a "fan out" that only has one of many items having follow-up tasks
-
     assert num_steps >= 2, "Test assumes at least two tasks"  # noqa: PLR2004
 
     steps = list(gen_fake_steps(num_steps))
