@@ -898,9 +898,9 @@ class GraphPlanner(Planner):
     @classmethod
     def _create_color_map(
         cls,
-        start_color: str = "#00ff00",
-        term_color: str = "#ff0000",
-        task_color: str = "#377aaa",
+        start_color: str = "#00ff00a1",
+        term_color: str = "#ff7300a1",
+        task_color: str = "#377aaaa1",
         # default_color: str = "#1f78b4",
     ) -> dict[str, str]:
         return {
@@ -1120,7 +1120,7 @@ class MonitoredPlanner(GraphPlanner):
         self.original = graph.copy()
         monitored_graph = self._augment(graph)
         self._initialize_from_graph(monitored_graph)
-        self.color_map.update({MonitoredPlanner.NODE_BEHAVIOR_MONITOR: "#d0a04e"})
+        self.color_map.update({MonitoredPlanner.NODE_BEHAVIOR_MONITOR: "#d0a04ea1"})
 
     @classmethod
     def derive_name(cls, node: str) -> str:
