@@ -127,7 +127,6 @@ def build_parser() -> ArgumentParser:
         required=True,
         dest="command",
     )
-    _ = subparsers.add_parser("usage", help="Learn how to use this tool")
 
     build_workplan_subparser(subparsers)
     build_blueprint_subparser(subparsers)
