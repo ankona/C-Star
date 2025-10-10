@@ -5,10 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from cstar.orchestration.models import (
-    Step,
-    Workplan,
-)
+from cstar.orchestration.models import Step, Workplan
 from cstar.orchestration.orchestrator import (
     GraphPlanner,
     MonitoredPlanner,
@@ -24,6 +21,13 @@ def the_workplan(
     fill_workplan_template: t.Callable[[dict[str, t.Any]], str],
     complete_workplan_template_input: dict[str, t.Any],
 ) -> Workplan:
+    """Create a valid workplan.
+
+    Parameters
+    ----------
+    tmp_path : Path
+    A temporary path to store test outputs
+    """
     data = complete_workplan_template_input
     # var0, var1, var2 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
 

@@ -1,12 +1,22 @@
 import typing as t
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, FilePath
 
 
 class Request(BaseModel):
     request_id: uuid.UUID = Field(default_factory=uuid.uuid4, frozen=True, init=False)
     """Unique identifier of a request."""
+
+
+class ValidateWorkplanRequest(Request):
+    path: FilePath
+    """Path to a workplan YAML file."""
+
+
+class ValidateBlueprintRequest(Request):
+    path: FilePath
+    """Path to a blueprint YAML file."""
 
 
 class CheckStatusRequest(Request):

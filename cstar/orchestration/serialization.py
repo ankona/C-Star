@@ -2,7 +2,7 @@ import enum
 import typing as t
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from yaml import safe_load
 
 from cstar.orchestration import models
@@ -31,15 +31,57 @@ def _wp_to_sim(model: models.Workplan) -> ROMSSimulation | None:
 _T = t.TypeVar("_T", bound=BaseModel)
 
 
-def _read_json(path: Path, klass: type[_T]) -> _T:
-    with path.open("r", encoding="utf-8") as fp:
-        return klass.model_validate_json(json_data=fp.read())
+def _read_json(path: Path, klass: type[_T]) -> _T | None:
+    """Attempt to read JSON from a document.
+
+    Parameters
+    ----------
+    path : Path
+        Path to a document containing JSON
+    klass : type[_T]
+        The type to deserialize the JSON into
+
+    Returns
+    -------
+    _T : The instance deserialized from the document
+    """
+    try:
+        with path.open("r", encoding="utf-8") as fp:
+            return klass.model_validate_json(json_data=fp.read())
+    except ValidationError:
+        msg = f"Invalid content in json document: {path}"
+        print(msg)
+    except ValueError:
+        msg = f"Unable to read model from json document: {path}"
+
+    return None
 
 
-def _read_yaml(path: Path, klass: type[_T]) -> _T:
-    with path.open("r", encoding="utf-8") as fp:
-        model_dict = safe_load(fp)
-        return klass.model_validate(model_dict)
+def _read_yaml(path: Path, klass: type[_T]) -> _T | None:
+    """Attempt to read YAML from a document.
+
+    Parameters
+    ----------
+    path : Path
+        Path to a document containing YAML
+    klass : type[_T]
+        The type to deserialize the YAML into
+
+    Returns
+    -------
+    _T : The instance deserialized from the document
+    """
+    try:
+        with path.open("r", encoding="utf-8") as fp:
+            model_dict = safe_load(fp)
+            return klass.model_validate(model_dict)
+    except ValidationError:
+        msg = f"Invalid content in yaml document: {path}"
+        print(msg)
+    except ValueError:
+        msg = f"Unable to read model from yaml document: {path}"
+
+    return None
 
 
 adapter_map: dict[
@@ -84,7 +126,7 @@ def deserialize(
 
     """
     if not path.exists():
-        msg = f"The blueprint file could not be found at the path `{path}`"
+        msg = f"A blueprint file could not be found at the path `{path}`"
         raise FileNotFoundError(msg)
 
     model: _DT | None = None
@@ -99,7 +141,7 @@ def deserialize(
         model = _read_yaml(path, klass)
 
     if model is None:
-        msg = f"Unable to deserialize the blueprint at `{path}` as `{mode}`"
+        msg = f"Unable to deserialize the blueprint at `{path}` with mode `{mode}`"
         raise ValueError(msg)
 
     return model

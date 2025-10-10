@@ -12,6 +12,26 @@ class Response(BaseModel):
     """Unique identifier of the source request."""
 
 
+class ValidateWorkplanResponse(Response):
+    """Describe the success or failue of validation."""
+
+    success: bool
+    """Flag indicating the success/failure of the validation."""
+
+    error: str
+    """Validation errors causing a failure."""
+
+
+class ValidateBlueprintResponse(Response):
+    """Describe the success or failue of validation."""
+
+    success: bool
+    """Flag indicating the success/failure of the validation."""
+
+    error: str
+    """Validation errors causing a failure."""
+
+
 class CheckStatusResponse(Response):
     """Common response attributes for a status check request."""
 
