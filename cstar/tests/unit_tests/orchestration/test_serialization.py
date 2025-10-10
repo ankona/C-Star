@@ -235,14 +235,14 @@ def test_serial_planner(
     launcher = Launcher()
     orchestrator = Orchestrator(planner, launcher)
 
-    num_steps = len(planner.plan)
+    num_steps = len(planner.plan())
 
     with mock.patch.object(Orchestrator, "SLEEP_DURATION", 0.05):
         orchestrator.run()
 
     # confirm no tasks remain executing
     assert not orchestrator.task_lookup
-    assert not planner.plan
+    assert not planner.plan()
 
     # confirm all tasks in the plan were moved to archive on completion
     assert orchestrator.task_archive
