@@ -43,12 +43,12 @@ def build_blueprint_subparser(subparsers: argparse._SubParsersAction) -> None:
     subparsers : ArgumentParser
         The subparser to add commands to
     """
-    blueprint_parser = subparsers.add_parser(
+    bp_parser = subparsers.add_parser(
         "blueprint",
         help="Create and execute custom blueprints",
     )
 
-    bp_subparsers = blueprint_parser.add_subparsers(
+    bp_subparsers = bp_parser.add_subparsers(
         help="Workplan actions",
         required=True,
         dest="action",
@@ -81,12 +81,12 @@ def build_workplan_subparser(subparsers: argparse._SubParsersAction) -> None:
     subparsers : ArgumentParser
         The subparser to add commands to
     """
-    workplan_parser = subparsers.add_parser(
+    wp_parser = subparsers.add_parser(
         "workplan",
         help="Create and execute custom workplans",
     )
 
-    wp_subparsers = workplan_parser.add_subparsers(
+    wp_subparsers = wp_parser.add_subparsers(
         help="Workplan actions",
         required=True,
         dest="action",
