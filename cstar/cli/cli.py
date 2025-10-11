@@ -54,21 +54,19 @@ def build_blueprint_subparser(subparsers: argparse._SubParsersAction) -> None:
         dest="action",
     )
 
-    bp_run_parser = bp_subparsers.add_parser("run")
+    bp_run_parser = bp_subparsers.add_parser("run", help="Execute a blueprint")
     bp_run_parser.add_argument(
-        "-p",
-        "--path",
-        help="Path to a blueprint",
-        required=True,
+        dest="path",
+        help="Path to the blueprint",
     )
     bp_run_parser.set_defaults(factory=RunBlueprintCommand)
 
-    bp_check_parser = bp_subparsers.add_parser("check")
+    bp_check_parser = bp_subparsers.add_parser(
+        "check", help="Validate the contents of a blueprint"
+    )
     bp_check_parser.add_argument(
-        "-p",
-        "--path",
-        help="Path to a blueprint",
-        required=True,
+        dest="path",
+        help="Path to the blueprint",
     )
     bp_check_parser.set_defaults(factory=CheckBlueprintCommand)
 
@@ -92,21 +90,19 @@ def build_workplan_subparser(subparsers: argparse._SubParsersAction) -> None:
         dest="action",
     )
 
-    wp_run_parser = wp_subparsers.add_parser("run")
+    wp_run_parser = wp_subparsers.add_parser("run", help="Execute a workplan")
     wp_run_parser.add_argument(
-        "-p",
-        "--path",
-        help="Path to a workplan",
-        required=True,
+        dest="path",
+        help="Path to the workplan (YAML)",
     )
     wp_run_parser.set_defaults(factory=RunWorkplanCommand)
 
-    wp_check_parser = wp_subparsers.add_parser("check")
+    wp_check_parser = wp_subparsers.add_parser(
+        "check", help="Validate the contents of a workplan"
+    )
     wp_check_parser.add_argument(
-        "-p",
-        "--path",
-        help="Path to a workplan",
-        required=True,
+        dest="path",
+        help="Path to the workplan (YAML)",
     )
     wp_check_parser.set_defaults(factory=CheckWorkplanCommand)
 
