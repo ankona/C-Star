@@ -1,38 +1,73 @@
-import time
+from pathlib import Path
 
 from prefect import flow, task
 
+from cstar.execution.handler import ExecutionHandler, ExecutionStatus
 from cstar.orchestration.adapter import BlueprintAdapter
 from cstar.orchestration.models import RomsMarblBlueprint
+from cstar.orchestration.serialization import deserialize
 from cstar.simulation import Simulation
 
-
-@task
-def load_blueprint() -> RomsMarblBlueprint | None:
-    """Deserialize the target blueprint."""
-    model: RomsMarblBlueprint | None = None
-
-    # todo: deserialize the blueprint received in the input
-    if model:
-        model = RomsMarblBlueprint.validate(model)
-
-    return model
+ACTION_NAME = "run blueprint"
 
 
 @task
-def prepare_environment() -> None:
-    """Run simulation setup to prepare the computing environment."""
+async def load_blueprint(path: Path) -> RomsMarblBlueprint:
+    """Deserialize the target blueprint.
+
+    Parameters
+    ----------
+    path : Path
+        Path to a blueprint
+
+    Returns
+    -------
+    RomsMarblBlueprint | None
+        A deserialized instance of the blueprint when a valid blueprint is supplied.
+
+    Raises
+    ------
+    ValueError
+        If the blueprint is invalid
+    FileNotFoundError
+        If the path does not point to an existing blueprint
+    """
+    if not path.exists():
+        raise FileNotFoundError(f"No blueprint file found at `{path}`")
+
+    try:
+        if model := deserialize(path, RomsMarblBlueprint):
+            model = RomsMarblBlueprint.model_validate(model)
+
+            print(f"Deserialized model: {model}")
+            return model
+    except ValueError as ex:
+        print(f"Exception occurred: {ex}")
+
+    raise ValueError(f"Unable to load blueprint at `{path}`")
+
+
+@flow
+@task
+async def prepare_environment(blueprint: RomsMarblBlueprint) -> None:
+    """Run simulation setup to prepare the computing environment.
+
+    Parameters
+    ----------
+    blueprint : RomsMarblBlueprint
+        The blueprint specifying environment characteristics
+
+    """
     print("Preparing the environment starting")
-    time.sleep(20)
+    # time.sleep(20)
 
     simulation: Simulation | None = None
-    model: RomsMarblBlueprint | None = None
 
-    if model is None:
+    if blueprint is None:
         raise RuntimeError("Unable to continue without a blueprint")
 
     # TODO: need to differentiate between a fail state and a "still waiting" state for check_xxx tasks...
-    adapter = BlueprintAdapter(model)
+    adapter = BlueprintAdapter(blueprint)
     simulation = adapter.adapt()
 
     simulation.setup()
@@ -42,41 +77,64 @@ def prepare_environment() -> None:
     print("Preparing the environment complete")
 
 
+def is_simulation_done(handler: ExecutionHandler) -> bool:
+    """Evaluate the status of the task related to the execution handler, returning
+    `True` for any completed status.
+    """
+    return handler.status in [
+        ExecutionStatus.COMPLETED,
+        ExecutionStatus.CANCELLED,
+        ExecutionStatus.FAILED,
+        ExecutionStatus.UNKNOWN,
+    ]
+
+
 @task
-def execute_simulation() -> None:
-    """Run the target simulation."""
-    print("Simulation execution starting")
+async def execute_simulation(blueprint: RomsMarblBlueprint | None) -> None:
+    """Run the target simulation.
 
-    simulation: Simulation | None = None
-    model: RomsMarblBlueprint | None = None
+    Parameters
+    ----------
+    blueprint : RomsMarblBlueprint
+        The blueprint to execute
+    """
+    print(f"{ACTION_NAME.capitalize()} action is starting")
 
-    if model is None:
+    if blueprint is None:
         raise RuntimeError("Unable to continue without a blueprint")
 
     # TODO: need to differentiate between a fail state and a "still waiting" state for check_xxx tasks...
-    adapter = BlueprintAdapter(model)
+    # - does is_simulation_done solve the issue of the original todo?
+    adapter = BlueprintAdapter(blueprint)
     simulation = adapter.adapt()
 
-    simulation.run()
+    handle = simulation.run()
 
-    time.sleep(20)
-    print("Simulation execution complete")
+    # TODO: perform the same raise/retry behavior as workplan status checking.
+    # - should re-use the existing status task...
+    while not is_simulation_done(handle):
+        # await asyncio.sleep(90)
+        handle.updates(0)
+
+    print(f"{ACTION_NAME.capitalize()} action is complete")
 
 
 @task
-def teardown_environment() -> None:
-    """Run required simulation post-processing."""
+async def on_simulation_complete(blueprint: RomsMarblBlueprint) -> None:
+    """Run required simulation post-processing.
+
+    Parameters
+    ----------
+    blueprint : RomsMarblBlueprint
+        The blueprint to execute
+    """
     print("Simulation teardown starting")
-    time.sleep(20)
 
-    simulation: Simulation | None = None
-    model: RomsMarblBlueprint | None = None
-
-    if model is None:
+    if blueprint is None:
         raise RuntimeError("Unable to continue without a blueprint")
 
     # TODO: need to differentiate between a fail state and a "still waiting" state for check_xxx tasks...
-    adapter = BlueprintAdapter(model)
+    adapter = BlueprintAdapter(blueprint)
     simulation = adapter.adapt()
 
     simulation.post_run()
@@ -85,15 +143,24 @@ def teardown_environment() -> None:
 
 
 @flow
-def run_flow() -> None:
-    """Execute all tasks necessary to complete a simulation."""
+async def run_simulation_flow(path: Path) -> None:
+    """Execute all tasks necessary to complete a simulation.
+
+    Parameters
+    ----------
+    path: Path
+        The path to a blueprint
+    """
     print("Simulation flow starting")
-    t0 = prepare_environment.submit()
-    t1 = execute_simulation.submit(wait_for=[t0])
-    t2 = teardown_environment.submit(wait_for=[t1])
-    t2.wait()
+
+    blueprint = await load_blueprint(path)
+
+    await prepare_environment(blueprint)
+    await execute_simulation(blueprint)
+    await on_simulation_complete(blueprint)
+
     print("Simulation flow complete")
 
 
 if __name__ == "__main__":
-    run_flow()
+    run_simulation_flow()
