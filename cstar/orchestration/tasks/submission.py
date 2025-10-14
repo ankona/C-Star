@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 
@@ -9,7 +10,18 @@ from cstar.orchestration.orchestrator import Launcher, SlurmLauncher, Task, Task
 
 @task
 async def submit_slurm_job(step: Step | None = None) -> dict[str, Task]:
-    """Submit a job to the SLURM system."""
+    """Submit a job to the SLURM system.
+
+    Parameters
+    ----------
+    step : Step
+        The step to submit to SLURM
+
+    Returns
+    -------
+    dict[str, Task]
+        Mapping of task ID to Task for all submitted jobs
+    """
     print("SLURM submission starting")
     time.sleep(20)
 
@@ -36,7 +48,18 @@ async def submit_slurm_job(step: Step | None = None) -> dict[str, Task]:
 
 @task
 async def submit_local_job(step: Step) -> dict[str, Task]:
-    """Run a local process."""
+    """Run a local process.
+
+    Parameters
+    ----------
+    step : Step
+        The step to submit
+
+    Returns
+    -------
+    dict[str, Task]
+        Mapping of task ID to Task for all submitted jobs
+    """
     print("Local submission starting")
     time.sleep(20)
 
@@ -62,11 +85,11 @@ async def submit_local_job(step: Step) -> dict[str, Task]:
 async def run_flow() -> None:
     """Execute a status check workflow."""
     print("Job submission flow starting")
-    t0 = await submit_slurm_job()
-    launched_tasks = t0.wait()
+    launched_tasks = await submit_slurm_job()
+
     print(f"Job submission flow complete: {launched_tasks}")
 
 
 if __name__ == "__main__":
     """Execute the flow to submit a job to SLURM."""
-    run_flow()
+    asyncio.run(run_flow())

@@ -15,14 +15,23 @@ ACTION_NAME = "validate blueprint"
 async def validate_blueprint(
     request: ValidateBlueprintRequest,
 ) -> ValidateBlueprintResponse:
-    """Validate a blueprint."""
+    """Validate a blueprint.
+
+    Parameters
+    ----------
+    request: ValidateBlueprintRequest
+        Request specifying a blueprint to validate
+
+    Returns
+    -------
+    ValidateBlueprintResponse
+    """
     print(f"{ACTION_NAME.capitalize()} action is starting")
     is_valid = False
     error_msg = ""
 
     try:
         if _ := deserialize(request.path, RomsMarblBlueprint):
-            # blueprint.validate()
             is_valid = True
     except ValueError as ex:
         error_msg = str(ex)
@@ -41,7 +50,17 @@ async def validate_blueprint(
 async def run_validate_blueprint_flow(
     request: ValidateBlueprintRequest,
 ) -> ValidateBlueprintResponse:
-    """Validate a blueprint within a flow."""
+    """Validate a blueprint within a flow.
+
+    Parameters
+    ----------
+    request: ValidateBlueprintRequest
+        Request specifying a blueprint to validate
+
+    Returns
+    -------
+    ValidateBlueprintResponse
+    """
     print(f"{ACTION_NAME.capitalize()} flow is starting")
 
     # validation_task = task(validate_blueprint, log_prints=True)

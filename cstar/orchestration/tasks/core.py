@@ -27,7 +27,13 @@ class CstarIncompleteError(CstarError):
     """The current status of an incomplete task."""
 
     def __init__(self, status: TaskStatus, *args) -> None:
-        """Initialize the error instance."""
+        """Initialize the error instance.
+
+        Parameters
+        ----------
+        status : TaskStatus
+            Current status of task producing an error
+        """
         super().__init__(*args)
         self.status = status
 

@@ -22,12 +22,27 @@ from cstar.orchestration.tasks.response import CheckStatusResponse
 
 
 def get_local_launcher() -> Launcher:
-    """Instantiate a local launcher."""
+    """Instantiate a local launcher.
+
+    Returns
+    -------
+    Launcher
+    """
     return Launcher()
 
 
 def get_slurm_launcher(job_id: str) -> SlurmLauncher:
-    """Instantiate a SLURM launcher."""
+    """Instantiate a SLURM launcher.
+
+    Parameters
+    ----------
+    job_id : str
+        The allocation ID the launcher will use
+
+    Returns
+    -------
+    SlurmLauncher
+    """
     return SlurmLauncher(job_id)
 
 
@@ -36,6 +51,17 @@ class StatusCheckHandler:
 
     @singledispatchmethod
     async def handle(self, request: CheckStatusRequest) -> CheckStatusResponse:
+        """Handle check status requests.
+
+        Parameters
+        ----------
+        request : CheckStatusRequest
+            Request specifying a workplan to perform a status check on
+
+        Returns
+        -------
+        CheckStatusResponse
+        """
         print(
             f"Status check could not be routed to a handler: {request.model_dump_json()}"
         )
@@ -47,7 +73,17 @@ class StatusCheckHandler:
 
     @handle.register(CheckProcessStatusRequest)
     async def _(self, request: CheckProcessStatusRequest) -> CheckStatusResponse:
-        """Handle a request for a status update for a task executed locally."""
+        """Handle a request for a status update for a task executed locally.
+
+        Parameters
+        ----------
+        request : CheckProcessStatusRequest
+            Request specifying a local process to perform a status check on
+
+        Returns
+        -------
+        CheckStatusResponse
+        """
         self.launcher = get_local_launcher()
 
         task = Task(
@@ -69,7 +105,17 @@ class StatusCheckHandler:
 
     @handle.register(CheckSlurmStatusRequest)
     async def _(self, request: CheckSlurmStatusRequest) -> CheckStatusResponse:
-        """Handle a request for a status update for a task executed by SLURM."""
+        """Handle a request for a status update for a task executed by SLURM.
+
+        Parameters
+        ----------
+        request : CheckSlurmStatusRequest
+            Request specifying a SLURM job to check status on
+
+        Returns
+        -------
+        CheckStatusResponse
+        """
         self.launcher = get_slurm_launcher(request.job_id)
         status = self.launcher.query_single(
             task_id=request.task_id,
@@ -112,7 +158,17 @@ async def retry_handler(task, task_run, state) -> bool:
     retry_condition_fn=retry_handler,
 )
 async def check_status(request: CheckStatusRequest) -> TaskStatus:
-    """Submit a blocking request to retrieve the status of all tasks."""
+    """Submit a blocking request to retrieve the status of all tasks.
+
+    Parameters
+    ----------
+    request : CheckStatusRequest
+        Request specifying details of a task to perform a status check for
+
+    Returns
+    -------
+    TaskStatus
+    """
     if not task_id:
         raise ValueError("Cannot check status without a task id.")
 
@@ -153,7 +209,18 @@ async def check_status(request: CheckStatusRequest) -> TaskStatus:
 
 @flow(log_prints=True)
 async def handle_request(request: CheckStatusRequest) -> dict[str, TaskStatus]:
-    """Execute a status check workflow that succeeds only when the task is done."""
+    """Execute a status check workflow that succeeds only when the task is done.
+
+    Parameters
+    ----------
+    request : CheckStatusRequest
+        The request to handle
+
+    Returns
+    -------
+    dict[str, TaskStatus]:
+        Mapping of task ID to task status.
+    """
     print("Job status flow starting")
 
     try:
