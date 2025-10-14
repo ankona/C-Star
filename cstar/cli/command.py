@@ -2,7 +2,7 @@ import os
 import typing as t
 from pathlib import Path
 
-from pydantic import BaseModel, Field, FilePath, field_validator
+from pydantic import BaseModel, DirectoryPath, Field, FilePath, field_validator
 
 
 class Command(BaseModel):
@@ -53,6 +53,24 @@ class CheckWorkplanCommand(Command):
 
     path: FilePath
     """Path to a YAML or JSON document containing a serialized workplan."""
+
+    @field_validator("path", mode="after")
+    @classmethod
+    def expand_path(cls, value: FilePath) -> Path:
+        """Expand the path provided by the user after validating it is non-empty and exists."""
+        return Path(value).expanduser().resolve()
+
+
+class PlanWorkplanCommand(Command):
+    """A command used to generate an execution plan for a workplan."""
+
+    action: t.Literal["plan"] = "plan"
+
+    path: FilePath
+    """Path to a YAML or JSON document containing a serialized workplan."""
+
+    output_dir: DirectoryPath
+    """Path to a directory where output may be written."""
 
     @field_validator("path", mode="after")
     @classmethod

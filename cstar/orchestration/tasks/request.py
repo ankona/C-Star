@@ -1,7 +1,7 @@
 import typing as t
 import uuid
 
-from pydantic import BaseModel, Field, FilePath
+from pydantic import BaseModel, DirectoryPath, Field, FilePath
 
 
 class Request(BaseModel):
@@ -12,6 +12,16 @@ class Request(BaseModel):
 class ValidateWorkplanRequest(Request):
     path: FilePath
     """Path to a workplan YAML file."""
+
+
+class PlanWorkplanRequest(Request):
+    """Request the generation of an execution plan."""
+
+    path: FilePath
+    """Path to a workplan YAML file."""
+
+    output_dir: DirectoryPath
+    """The directory to write the plan graph to."""
 
 
 class ValidateBlueprintRequest(Request):

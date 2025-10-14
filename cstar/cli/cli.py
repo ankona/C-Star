@@ -2,11 +2,13 @@ import argparse
 import asyncio
 import sys
 from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
 from cstar.cli.command import (
     CheckBlueprintCommand,
     CheckWorkplanCommand,
     Command,
+    PlanWorkplanCommand,
     RunBlueprintCommand,
     RunWorkplanCommand,
 )
@@ -105,6 +107,22 @@ def build_workplan_subparser(subparsers: argparse._SubParsersAction) -> None:
         help="Path to the workplan (YAML)",
     )
     wp_check_parser.set_defaults(factory=CheckWorkplanCommand)
+
+    wp_plan_parser = wp_subparsers.add_parser(
+        "plan", help="Review the execution plan for the Workplan"
+    )
+    wp_plan_parser.add_argument(
+        dest="path",
+        help="Path to the workplan (YAML)",
+    )
+    wp_plan_parser.add_argument(
+        "-o",
+        "--output_dir",
+        help="Directory to write plan outputs to.",
+        default=Path.cwd(),
+        dest="output_dir",
+    )
+    wp_plan_parser.set_defaults(factory=PlanWorkplanCommand)
 
 
 def build_parser() -> ArgumentParser:

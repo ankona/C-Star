@@ -4,6 +4,7 @@ from cstar.cli.command import (
     CheckBlueprintCommand,
     CheckWorkplanCommand,
     Command,
+    PlanWorkplanCommand,
     RunBlueprintCommand,
     RunWorkplanCommand,
 )
@@ -11,8 +12,13 @@ from cstar.orchestration.tasks.blueprint import (
     run_validate_blueprint_flow,
     validate_blueprint,
 )
-from cstar.orchestration.tasks.plan import run_validate_workplan_flow, validate_workplan
+from cstar.orchestration.tasks.plan import (
+    run_plan_workplan_flow,
+    run_validate_workplan_flow,
+    validate_workplan,
+)
 from cstar.orchestration.tasks.request import (
+    PlanWorkplanRequest,
     ValidateBlueprintRequest,
     ValidateWorkplanRequest,
 )
@@ -42,19 +48,35 @@ async def _(command: CheckWorkplanCommand) -> None:
     """
     request = ValidateWorkplanRequest(path=command.path)
 
+    action_fn = validate_workplan
     if command.use_workflow:
-        action = run_validate_workplan_flow
-        # result = await run_validate_workplan_flow(request)
+        action_fn = run_validate_workplan_flow
+
+    result = await action_fn(request)
+
+    if result.success:
+        print(f"Workplan in `{command.path}` passed validation")
     else:
-        # result = await validate_workplan(request)
-        action = validate_workplan
-
-    result = await action(request)
-
-    if not result.success:
         print(f"Workplan in `{command.path}` failed validation:\n - {result.error}")
-    else:
-        print(f"Workplan in `{command.path}` passes validation")
+
+
+@handle_command.register(PlanWorkplanCommand)
+async def _(command: PlanWorkplanCommand) -> None:
+    """Process `PlanWorkplanCommand` commands receieved from the CLI.
+
+    Parameters
+    ----------
+    command : PlanWorkplanCommand
+        The command to process
+    """
+    request = PlanWorkplanRequest(
+        path=command.path,
+        output_dir=command.output_dir,
+    )
+
+    response = await run_plan_workplan_flow(request)
+
+    print(f"Review the execution plan here: {response.plan_path}")
 
 
 @handle_command.register(RunWorkplanCommand)
