@@ -1080,7 +1080,6 @@ class GraphPlanner(Planner):
             cmap=cmap if cmap else None,
         )
 
-        plt.legend()
         plt.tight_layout(pad=2.0)
 
         write_to = image_directory / f"{slugify(title)}.png"
