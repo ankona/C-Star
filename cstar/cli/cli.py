@@ -8,6 +8,7 @@ from cstar.cli.command import (
     CheckBlueprintCommand,
     CheckWorkplanCommand,
     Command,
+    GenerateTemplateCommand,
     PlanWorkplanCommand,
     RunBlueprintCommand,
     RunWorkplanCommand,
@@ -45,6 +46,7 @@ def build_blueprint_subparser(subparsers: argparse._SubParsersAction) -> None:
     subparsers : ArgumentParser
         The subparser to add commands to
     """
+    # add a sub-parser for the command: `cstar workplan *`
     bp_parser = subparsers.add_parser(
         "blueprint",
         help="Create and execute custom blueprints",
@@ -56,6 +58,7 @@ def build_blueprint_subparser(subparsers: argparse._SubParsersAction) -> None:
         dest="action",
     )
 
+    # add a parser for the command: `cstar blueprint run path/to/blueprint.yaml`
     bp_run_parser = bp_subparsers.add_parser("run", help="Execute a blueprint")
     bp_run_parser.add_argument(
         dest="path",
@@ -63,6 +66,7 @@ def build_blueprint_subparser(subparsers: argparse._SubParsersAction) -> None:
     )
     bp_run_parser.set_defaults(factory=RunBlueprintCommand)
 
+    # add a parser for the command: `cstar blueprint check path/to/blueprint.yaml`
     bp_check_parser = bp_subparsers.add_parser(
         "check", help="Validate the contents of a blueprint"
     )
@@ -71,6 +75,23 @@ def build_blueprint_subparser(subparsers: argparse._SubParsersAction) -> None:
         help="Path to the blueprint",
     )
     bp_check_parser.set_defaults(factory=CheckBlueprintCommand)
+
+    # add a parser for the command: `cstar blueprint template path/to/output.yaml`
+    bp_tpl_parser: argparse.ArgumentParser = bp_subparsers.add_parser(
+        "template", help="Generate an empty blueprint."
+    )
+    bp_tpl_parser.add_argument(
+        "-o",
+        "--output",
+        dest="path",
+        help=(
+            "Output path for the blueprint. If not provided, "
+            "the template is written to stdout."
+        ),
+        required=False,
+    )
+    bp_tpl_parser.set_defaults(factory=GenerateTemplateCommand)
+    bp_tpl_parser.set_defaults(template="blueprint")
 
 
 def build_workplan_subparser(subparsers: argparse._SubParsersAction) -> None:
@@ -92,6 +113,7 @@ def build_workplan_subparser(subparsers: argparse._SubParsersAction) -> None:
         dest="action",
     )
 
+    # add a parser for the command: `cstar workplan run path/to/workplan.yaml`
     wp_run_parser = wp_subparsers.add_parser("run", help="Execute a workplan")
     wp_run_parser.add_argument(
         dest="path",
@@ -99,6 +121,7 @@ def build_workplan_subparser(subparsers: argparse._SubParsersAction) -> None:
     )
     wp_run_parser.set_defaults(factory=RunWorkplanCommand)
 
+    # add a parser for the command: `cstar workplan check path/to/workplan.yaml`
     wp_check_parser = wp_subparsers.add_parser(
         "check", help="Validate the contents of a workplan"
     )
@@ -108,6 +131,7 @@ def build_workplan_subparser(subparsers: argparse._SubParsersAction) -> None:
     )
     wp_check_parser.set_defaults(factory=CheckWorkplanCommand)
 
+    # add a parser for the command: `cstar workplan plan -o ouput/directory`
     wp_plan_parser = wp_subparsers.add_parser(
         "plan", help="Review the execution plan for the Workplan"
     )
@@ -123,6 +147,23 @@ def build_workplan_subparser(subparsers: argparse._SubParsersAction) -> None:
         dest="output_dir",
     )
     wp_plan_parser.set_defaults(factory=PlanWorkplanCommand)
+
+    # add a parser for the command: `cstar workplan template path/to/output.yaml`
+    wp_tpl_parser: argparse.ArgumentParser = wp_subparsers.add_parser(
+        "template", help="Generate an empty workplan."
+    )
+    wp_tpl_parser.add_argument(
+        "-o",
+        "--output",
+        dest="path",
+        help=(
+            "Output path for the workplan. If not provided, "
+            "the template is written to stdout."
+        ),
+        required=False,
+    )
+    wp_tpl_parser.set_defaults(factory=GenerateTemplateCommand)
+    wp_tpl_parser.set_defaults(template="workplan")
 
 
 def build_parser() -> ArgumentParser:

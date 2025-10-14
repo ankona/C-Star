@@ -42,7 +42,17 @@ class RunWorkplanCommand(Command):
     @field_validator("path", mode="after")
     @classmethod
     def expand_path(cls, value: FilePath) -> Path:
-        """Expand the path provided by the user after validating it is non-empty and exists."""
+        """Expand the path provided by the user after validating it is non-empty and exists.
+        Parameters
+        ----------
+        value : path
+            the path to validate
+
+        Returns
+        -------
+        path
+            the validated and expanded path
+        """
         return Path(value).expanduser().resolve()
 
 
@@ -57,7 +67,17 @@ class CheckWorkplanCommand(Command):
     @field_validator("path", mode="after")
     @classmethod
     def expand_path(cls, value: FilePath) -> Path:
-        """Expand the path provided by the user after validating it is non-empty and exists."""
+        """Expand the path provided by the user after validating it is non-empty and exists.
+        Parameters
+        ----------
+        value : path
+            the path to validate
+
+        Returns
+        -------
+        path
+            the validated and expanded path
+        """
         return Path(value).expanduser().resolve()
 
 
@@ -75,7 +95,6 @@ class PlanWorkplanCommand(Command):
     @field_validator("path", mode="after")
     @classmethod
     def expand_path(cls, value: FilePath) -> Path:
-        """Expand the path provided by the user after validating it is non-empty and exists."""
         return Path(value).expanduser().resolve()
 
 
@@ -90,7 +109,52 @@ class RunBlueprintCommand(Command):
     @field_validator("path", mode="after")
     @classmethod
     def expand_path(cls, value: FilePath) -> Path:
-        """Expand the path provided by the user after validating it is non-empty and exists."""
+        """Expand the path provided by the user after validating it is non-empty and exists.
+        Parameters
+        ----------
+        value : path
+            the path to validate
+
+        Returns
+        -------
+        path
+            the validated and expanded path
+        """
+        return Path(value).expanduser().resolve()
+
+
+class GenerateTemplateCommand(Command):
+    """A command used to trigger generation of a template blueprint."""
+
+    action: t.Literal["template"] = "template"
+
+    template: t.Literal["blueprint", "workplan"] = "blueprint"
+    """The type of template to generate."""
+
+    path: Path | None = None
+    """Path to the desired output file.
+
+    If not provided, the template is written to stdout.
+    """
+
+    @field_validator("path", mode="after")
+    @classmethod
+    def expand_path(cls, value: Path | None) -> Path | None:
+        """Expand the path provided by the user.
+
+        Parameters
+        ----------
+        value : Path | None
+            The path to validate
+
+        Returns
+        -------
+        Path | None
+            The validated and expanded path if set, otherwise `None`
+        """
+        if not value:
+            return None
+
         return Path(value).expanduser().resolve()
 
 
@@ -105,5 +169,16 @@ class CheckBlueprintCommand(Command):
     @field_validator("path", mode="after")
     @classmethod
     def expand_path(cls, value: FilePath) -> Path:
-        """Expand the path provided by the user after validating it is non-empty and exists."""
+        """Expand the path provided by the user after validating it is non-empty and exists.
+
+        Parameters
+        ----------
+        value : Path
+            The path to validate
+
+        Returns
+        -------
+        Path
+            The validated and expanded path
+        """
         return Path(value).expanduser().resolve()

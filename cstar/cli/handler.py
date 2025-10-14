@@ -1,9 +1,11 @@
+import shutil
 from functools import singledispatch
 
 from cstar.cli.command import (
     CheckBlueprintCommand,
     CheckWorkplanCommand,
     Command,
+    GenerateTemplateCommand,
     PlanWorkplanCommand,
     RunBlueprintCommand,
     RunWorkplanCommand,
@@ -22,6 +24,7 @@ from cstar.orchestration.tasks.request import (
     ValidateBlueprintRequest,
     ValidateWorkplanRequest,
 )
+from cstar.system.manager import CStarSystemManager
 
 
 @singledispatch
@@ -34,6 +37,7 @@ async def handle_command(command: Command) -> None:
         The command to process
     """
     msg = f"Command `{command.command}::{command.action}` has no registered handler."
+
     raise NotImplementedError(msg)
 
 
@@ -77,6 +81,29 @@ async def _(command: PlanWorkplanCommand) -> None:
     response = await run_plan_workplan_flow(request)
 
     print(f"Review the execution plan here: {response.plan_path}")
+
+
+@handle_command.register(GenerateTemplateCommand)
+async def _(command: GenerateTemplateCommand) -> None:
+    """Process `GenerateTemplateCommand` commands receieved from the CLI.
+
+    Parameters
+    ----------
+    command : GenerateTemplateCommand
+        The command to process
+    """
+    system_mgr = CStarSystemManager()
+    tpl_path = system_mgr.environment.template_root / f"{command.template}.yaml"
+
+    if not tpl_path.exists():
+        print(f"Unable to read template file from `{tpl_path}`.")
+
+    if command.path is None:
+        print(tpl_path.read_text(encoding="utf-8"))
+    else:
+        command.path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(tpl_path, command.path)
+        print(f"Empty template written to `{command.path}`")
 
 
 @handle_command.register(RunWorkplanCommand)
