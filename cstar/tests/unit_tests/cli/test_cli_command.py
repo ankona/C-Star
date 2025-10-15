@@ -15,7 +15,7 @@ def test_cli_command_wp_run_bad_path() -> None:
     """Verify that the workplan run command only accepts valid paths."""
     parser = build_parser()
     exp_path = "missing.yaml"
-    args = parser.parse_args(["workplan", "run", "--path", exp_path])
+    args = parser.parse_args(["workplan", "run", exp_path])
 
     with pytest.raises(ValidationError) as ex:
         _ = as_command(args)
@@ -24,13 +24,11 @@ def test_cli_command_wp_run_bad_path() -> None:
     assert "path" in str(ex.value)
 
 
-def test_cli_command_wp_check_bad_path(
-    capsys: pytest.CaptureFixture[str],
-) -> None:
+def test_cli_command_wp_check_bad_path() -> None:
     """Verify that the workplan check command only accepts valid paths."""
     parser = build_parser()
     exp_path = "missing.yaml"
-    args = parser.parse_args(["workplan", "check", "--path", exp_path])
+    args = parser.parse_args(["workplan", "check", exp_path])
 
     with pytest.raises(ValidationError) as ex:
         _ = as_command(args)
@@ -53,7 +51,7 @@ def test_cli_command_wp_run(
     exp_path = tmp_path / "empty-wp.yaml"
     exp_path.touch()
 
-    args = parser.parse_args(["workplan", "run", "--path", str(exp_path)])
+    args = parser.parse_args(["workplan", "run", str(exp_path)])
 
     cmd = as_command(args)
 
@@ -77,7 +75,7 @@ def test_cli_command_wp_check(
     exp_path = tmp_path / "empty-wp.yaml"
     exp_path.touch()
 
-    args = parser.parse_args(["workplan", "check", "--path", str(exp_path)])
+    args = parser.parse_args(["workplan", "check", str(exp_path)])
 
     cmd = as_command(args)
 
