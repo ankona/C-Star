@@ -1278,13 +1278,28 @@ class Orchestrator:
     """Map for direct task retrieval of completed tasks."""
 
     def __init__(self, planner: Planner, launcher: Launcher) -> None:
-        """Prepare the orchestrator to execute a plan."""
+        """Prepare the orchestrator to execute a plan.
+
+        Parameters
+        ----------
+        planner: Planner
+            The planner used to prioritize step execution.
+        launcher : Launcher
+            The launcher used to execute steps.
+        """
         self.planner = planner
         self.launcher = launcher
         self.task_lookup = {}
         self.task_archive = {}
 
     def _start(self, step: Step) -> Task:
+        """Use a launcher to trigger step execution.
+
+        Parameters
+        __________
+        step : Step
+            The step to start
+        """
         task: Task | None = None
 
         try:
@@ -1307,7 +1322,18 @@ class Orchestrator:
 
     @singledispatchmethod
     def run_step(self, step: Step) -> TaskStatus:
-        """Trigger execution of a step with the launcher."""
+        """Trigger execution of a step with the launcher.
+
+        Parameters
+        ----------
+        step: Step
+            The step specifying the executable criteria.
+
+        Returns
+        -------
+        TaskStatus
+            The current status of the newly executed task
+        """
         if step.name not in self.task_lookup:
             # status = self.launcher.report(step)
             # if status == TaskStatus.Unknown:
