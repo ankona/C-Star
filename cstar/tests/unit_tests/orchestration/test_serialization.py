@@ -12,7 +12,8 @@ from cstar.orchestration.models import (
     TaskStatus,
     Workplan,
 )
-from cstar.orchestration.orchestrator import Launcher, Orchestrator, SerialPlanner
+from cstar.orchestration.orchestrator import Launcher, Orchestrator
+from cstar.orchestration.planning import SerialPlanner
 
 
 def test_workplan_no_data(

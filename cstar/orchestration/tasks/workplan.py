@@ -3,13 +3,9 @@ from pathlib import Path
 
 from prefect import flow
 
-from cstar.orchestration.models import TaskStatus
-from cstar.orchestration.orchestrator import (
-    GraphPlanner,
-    Orchestrator,
-    SlurmLauncher,
-    Workplan,
-)
+from cstar.orchestration.models import TaskStatus, Workplan
+from cstar.orchestration.orchestrator import Orchestrator, SlurmLauncher
+from cstar.orchestration.planning import GraphPlanner
 from cstar.orchestration.serialization import deserialize
 from cstar.orchestration.tasks.allocation import run_get_allocation_flow
 from cstar.orchestration.tasks.plan import validate_workplan

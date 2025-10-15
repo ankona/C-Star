@@ -4,7 +4,8 @@ from pathlib import Path
 
 from prefect import flow
 
-from cstar.orchestration.orchestrator import GraphPlanner, Workplan
+from cstar.orchestration.models import Workplan
+from cstar.orchestration.planning import GraphPlanner
 from cstar.orchestration.serialization import deserialize
 from cstar.orchestration.tasks.request import (
     PlanWorkplanRequest,

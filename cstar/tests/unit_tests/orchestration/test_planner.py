@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from cstar.orchestration.models import Step, Workplan
-from cstar.orchestration.orchestrator import (
+from cstar.orchestration.planning import (
     GraphPlanner,
     MonitoredPlanner,
     Planner,
