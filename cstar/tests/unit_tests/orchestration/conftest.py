@@ -481,14 +481,14 @@ def fill_blueprint_template(
                 documentation: http://mockdoc.com/partitioning
                 locked: false
                 data:
-                  location: http://mockdoc.com/partitioning.nc
-                  hash: abc123
+                  - location: http://mockdoc.com/partitioning.nc
+                    hash: abc123
               river:
                 documentation: http://mockdoc.com/partitioning
                 locked: false
                 data:
-                  location: http://mockdoc.com/partitioning.nc
-                  hash: abc123
+                  - location: http://mockdoc.com/partitioning.nc
+                    hash: abc123
             partitioning:
               documentation: http://mockdoc.com/partitioning
               hash: null
@@ -510,12 +510,10 @@ def fill_blueprint_template(
             grid:
               documentation: http://mockdoc.com/model-params
               data:
-                location: http://mockdoc.com/grid
+                - location: http://mockdoc.com/grid
             initial_conditions:
               data:
-                location: http://mockdoc.com/grid
-            model_params:
-              time_step: 1
+                - location: http://mockdoc.com/grid
             """,
         )
 
