@@ -497,6 +497,7 @@ def fill_blueprint_template(
               n_procs_y: 8
             model_params:
               documentation: http://mockdoc.com/model-params
+              time_step: 1
               hash: null
               locked: false
             runtime_params:
