@@ -12,10 +12,6 @@ from cstar.cli.command import (
     RunWorkplanCommand,
 )
 from cstar.orchestration.models import RomsMarblBlueprint, TaskStatus, Workplan
-from cstar.orchestration.tasks.blueprint import (
-    run_validate_blueprint_flow,
-    validate_blueprint,
-)
 from cstar.orchestration.tasks.plan import (
     run_plan_workplan_flow,
     run_validate_workplan_flow,
@@ -23,9 +19,11 @@ from cstar.orchestration.tasks.plan import (
 )
 from cstar.orchestration.tasks.request import (
     PlanWorkplanRequest,
-    ValidateBlueprintRequest,
+    RunWorkplanRequest,
     ValidateWorkplanRequest,
 )
+from cstar.orchestration.tasks.simulation import run_simulation_flow
+from cstar.orchestration.tasks.workplan import run_workplan_flow
 from cstar.system.manager import CStarSystemManager
 
 
@@ -145,6 +143,24 @@ async def _(command: GenerateTemplateCommand) -> None:
         print(f"{template}\n\n")
 
 
+@handle_command.register(RunBlueprintCommand)
+async def _(command: RunBlueprintCommand) -> None:
+    """Process `RunBlueprintCommand` commands receieved from the CLI.
+
+    Parameters
+    ----------
+    command : RunBlueprintCommand
+        The command to process
+    """
+    # request = RunBlueprintRequest(path=command.path)
+    _ = await run_simulation_flow(command.path)
+    # TODO: return a good result from the "schedule blueprint job" instead?
+
+    # if not result.:
+    #     print(f"Blueprint in `{command.path}` failed validation:\n - {result.error}")
+    # else:
+    #     print(f"Blueprint in `{command.path}` passes validation")
+
 
 @handle_command.register(RunWorkplanCommand)
 async def _(command: RunWorkplanCommand) -> None:
@@ -155,7 +171,14 @@ async def _(command: RunWorkplanCommand) -> None:
     command : RunWorkplanCommand
         The command to process
     """
-    print(f"MOCK - handling {command}")
+    request = RunWorkplanRequest(path=command.path)
+
+    result = await run_workplan_flow(request)
+
+    if not result.status > TaskStatus.Active:
+        print(f"Workplan in `{command.path}` failed during start-up")
+    else:
+        print(f"Workplan in `{command.path}` is running")
 
 
 @handle_command.register(CheckBlueprintCommand)
@@ -167,28 +190,18 @@ async def _(command: CheckBlueprintCommand) -> None:
     command : CheckBlueprintCommand
         The command to process
     """
-    request = ValidateBlueprintRequest(path=command.path)
+    raise NotImplementedError
 
-    if command.use_workflow:
-        action = run_validate_blueprint_flow
-    else:
-        action = validate_blueprint
-
-    result = await action(request)
-
-    if not result.success:
-        print(f"Workplan in `{command.path}` failed validation:\n - {result.error}")
-    else:
-        print(f"Workplan in `{command.path}` passes validation")
-
-
-@handle_command.register(RunBlueprintCommand)
-async def _(command: RunBlueprintCommand) -> None:
-    """Process `RunBlueprintCommand` commands receieved from the CLI.
-
-    Parameters
-    ----------
-    command : RunBlueprintCommand
-        The command to process
-    """
-    print(f"MOCK - handling {command}")
+    # request = ValidateBlueprintRequest(path=command.path)
+    #
+    # if command.use_workflow:
+    #     action = run_validate_blueprint_flow
+    # else:
+    #     action = validate_blueprint
+    #
+    # result = await action(request)
+    #
+    # if not result.success:
+    #     print(f"Workplan in `{command.path}` failed validation:\n - {result.error}")
+    # else:
+    #     print(f"Workplan in `{command.path}` passes validation")

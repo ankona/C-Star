@@ -14,6 +14,23 @@ class ValidateWorkplanRequest(Request):
     """Path to a workplan YAML file."""
 
 
+class RunBlueprintRequest(Request):
+    """Request the execution of a blueprint."""
+
+    path: FilePath
+    """Path to a blueprint YAML file."""
+
+
+class RunWorkplanRequest(Request):
+    """Request the execution of a workplan."""
+
+    path: FilePath
+    """Path to a workplan YAML file."""
+
+    # output_dir: DirectoryPath
+    """The directory to write the plan graph to."""
+
+
 class PlanWorkplanRequest(Request):
     """Request the generation of an execution plan."""
 

@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic import BaseModel, Field, FilePath
+from pydantic import BaseModel, DirectoryPath, Field, FilePath
 
 from cstar.orchestration.models import TaskStatus
 
@@ -17,6 +17,16 @@ class PlanWorkplanResponse(Response):
 
     plan_path: FilePath
     """The output location for the generated plan graph."""
+
+
+class RunWorkplanResponse(Response):
+    """Describe the result of a workplan execution attempt."""
+
+    output_dir: DirectoryPath
+    """The directory where workplan outputs are stored."""
+
+    status: TaskStatus
+    """Current status of the workplan upon handling of the request."""
 
 
 class ValidateWorkplanResponse(Response):
@@ -62,7 +72,7 @@ class PrepareComputeResponse(Response):
 class PrepareSlurmComputeResponse(PrepareComputeResponse):
     """SLURM-specific resource allocation response."""
 
-    category: str
+    category: str = "SLURM"
     """The category of the resources that were allocated."""
 
     job_id: str
