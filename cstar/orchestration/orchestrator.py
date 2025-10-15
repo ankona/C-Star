@@ -151,7 +151,7 @@ class Task:
             fp = log_path.open("+a", encoding="utf-8")
 
             self.cmd = cmd
-            self.process = Popen(  # noqa: S60
+            self.process = Popen(
                 cmd,
                 text=True,
                 stdout=fp,
@@ -994,6 +994,20 @@ class GraphPlanner(Planner):
         group_map: dict[str, str],
         graph: nx.DiGraph,
     ) -> tuple[str, ...]:
+        """Return a pyplot-usable iterable containing per-node coloring.
+
+        Paramters
+        ---------
+        group_map : dict[str, str]
+            A mapping of node behavior names to colors
+        graph : nx.DiGraph
+            The graph to create a color-map for
+
+        Returns
+        -------
+        tuple[str, ...]
+            tuple containing color strings
+        """
         return tuple(
             group_map[node_data[cls.NODE_ACTION_KEY]]
             for node, node_data in graph.nodes(data=True)
@@ -1088,6 +1102,13 @@ class GraphPlanner(Planner):
         return write_to
 
     def remove(self, step: Step) -> None:
+        """Remove nodes from the graph.
+
+        Parameters
+        ----------
+        step : Step
+            The step used to identify a step to remove
+        """
         self.graph.remove_node(step.name)
 
     def plan(
@@ -1098,6 +1119,11 @@ class GraphPlanner(Planner):
 
         Builds a task graph and flatten using a breadth-first traversal
         to ensure dependency order.
+
+        Parameters
+        ----------
+        artifact_dir: Path | None
+            Directory where planner outputs may be written
         """
         if not self.graph and GraphPlanner.START_NODE not in self.graph.nodes:
             return []
@@ -1144,7 +1170,10 @@ class GraphPlanner(Planner):
 
 
 class MonitoredPlanner(GraphPlanner):
+    """A planner that injects additional steps for monitoring asynchronous tasks."""
+
     original: nx.DiGraph
+    """The original graph specifying the user-defined tasks."""
 
     NODE_BEHAVIOR_MONITOR: t.ClassVar[t.Literal["monitor"]] = "monitor"
     NAME_PREFIX: t.ClassVar[t.Literal["m-"]] = "m-"
@@ -1152,6 +1181,17 @@ class MonitoredPlanner(GraphPlanner):
     def __init__(
         self, workplan: Workplan | None = None, graph: nx.DiGraph | None = None
     ) -> None:
+        """Initialize the planner.
+
+        Parameters
+        ----------
+        workplan : Workplan
+            The workplan to create a plan for
+        graph : nx.DiGraph | None
+            A pre-initialized graph to re-use in place of a fresh plan
+        artifact_dir: Path | None
+            Directory where planner outputs may be written
+        """
         super().__init__(workplan, graph)
 
         graph = self.graph.copy()
@@ -1162,11 +1202,33 @@ class MonitoredPlanner(GraphPlanner):
 
     @classmethod
     def derive_name(cls, node: str) -> str:
+        """Create a unique node name based on the original node name.
+
+        Parameters
+        ----------
+        node : str
+            The name of the source/related node
+
+        Returns
+        -------
+        str
+        """
         return f"{cls.NAME_PREFIX}{node}"
 
     @classmethod
     def _augment(cls, og: nx.DiGraph) -> nx.DiGraph:
-        """Modify the original graph to have a monitoring layer."""
+        """Modify the original graph to have a monitoring layer.
+
+        Parameters
+        ----------
+        og : nx.DiGraph
+            The original, un-augmented graph to use for generating a new graph
+
+        Returns
+        -------
+        nx.DiGraph
+            The augmented graph
+        """
         tasks = og.copy()
 
         monitor_labels = {
@@ -1195,6 +1257,7 @@ class SerialPlanner(Planner):
     """Plan a serialized path thrgh the tasks in a Workplan."""
 
     _plan: list[Step]
+    """Cache of the last result of creating a plan."""
 
     def __init__(
         self,
@@ -1202,7 +1265,17 @@ class SerialPlanner(Planner):
         graph: nx.DiGraph | None = None,
         artifact_dir: Path | None = None,
     ) -> None:
-        """Prepare the execution plan"""
+        """Prepare the serial execution plan.
+
+        Parameters
+        ----------
+        workplan : Workplan
+            The workplan to create a plan for
+        graph : nx.DiGraph | None
+            A pre-initialized graph to re-use in place of a fresh plan
+        artifact_dir: Path | None
+            Directory where planner outputs may be written
+        """
         super().__init__(workplan)
         self._plan = SerialPlanner._create_plan(
             workplan,
@@ -1213,14 +1286,24 @@ class SerialPlanner(Planner):
     @classmethod
     def _create_plan(
         cls,
-        plan: Workplan,
+        workplan: Workplan,
         graph: nx.DiGraph | None = None,
         artifact_dir: Path | None = None,  # TODO: debug only? remove
     ) -> list[Step]:
         """Build a task graph and flatten using a breadth-first traversal
         to ensure dependency order.
+
+        Parameters
+        ----------
+        workplan : Workplan
+            The workplan to create a plan for
+        graph : nx.DiGraph | None
+            A pre-initialized graph to re-use in place of a fresh plan
+        artifact_dir: Path | None
+            Directory where planner outputs may be written
+
         """
-        planner = GraphPlanner(plan, graph=graph)
+        planner = GraphPlanner(workplan, graph=graph)
 
         if not planner.graph and GraphPlanner.START_NODE not in planner.graph.nodes:
             return []
@@ -1228,6 +1311,13 @@ class SerialPlanner(Planner):
         return planner.plan(artifact_dir)
 
     def remove(self, step: Step) -> None:
+        """Remove a step from the plan.
+
+        Parameters
+        ----------
+        step : Step
+            Step to remove
+        """
         index = self._plan.index(step)
 
         if index == -1:
@@ -1244,6 +1334,10 @@ class SerialPlanner(Planner):
 
         If steps are blocked due to serial plan execution or dependencies, the
         currently executing step will be returned.
+
+        Returns
+        -------
+        Step
         """
         if self._plan:
             return self._plan[0]
@@ -1251,11 +1345,21 @@ class SerialPlanner(Planner):
         return None
 
     def __iter__(self) -> t.Iterator[Step]:
-        """Return an iterator over the planner's steps."""
+        """Return an iterator over the planner's steps.
+
+        Returns
+        -------
+        Iterator[Step]
+        """
         return iter(self.plan())
 
     def plan(self) -> list[Step]:
-        """Create a plan specifying the desired execution order of all tasks."""
+        """Create a plan specifying the desired execution order of all tasks.
+
+        Returns
+        -------
+        list[Step]
+        """
         return self._plan
 
 
@@ -1296,9 +1400,14 @@ class Orchestrator:
         """Use a launcher to trigger step execution.
 
         Parameters
-        __________
+        ----------
         step : Step
             The step to start
+
+        Returns
+        -------
+        Task
+            Metadata about the process used to enable monitoring progress
         """
         task: Task | None = None
 
