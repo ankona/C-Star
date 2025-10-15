@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from prefect import flow, task
@@ -160,7 +161,10 @@ async def run_simulation_flow(path: Path) -> None:
     await on_simulation_complete(blueprint)
 
     print("Simulation flow complete")
+    # TODO: must return something....
+    # - should probably make run_simulation_flow the thing that's _scheduled_
+    #   by the orchestrator when it's iterating through available steps.
 
 
 if __name__ == "__main__":
-    run_simulation_flow()
+    asyncio.run(run_simulation_flow(Path.cwd()))

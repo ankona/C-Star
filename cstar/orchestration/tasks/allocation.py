@@ -1,3 +1,4 @@
+import asyncio
 from functools import singledispatchmethod
 from pathlib import Path
 
@@ -112,7 +113,7 @@ class ResourceAllocationHandler:
     retries=5,
     retry_delay_seconds=[2, 4, 8, 16, 32],
 )
-async def allocate_resources() -> TaskStatus:
+async def allocate_resources(request: PrepareComputeRequest) -> TaskStatus:
     """Submit a blocking request to perform required resource allocation(s).
 
     Returns
@@ -142,7 +143,7 @@ async def allocate_resources() -> TaskStatus:
 
 
 @flow(log_prints=True)
-async def run_flow() -> TaskStatus:
+async def run_get_allocation_flow(request: PrepareComputeRequest) -> TaskStatus:
     """Execute a resource allocation workflow.
 
     Returns
@@ -152,7 +153,7 @@ async def run_flow() -> TaskStatus:
     print("Resource allocation flow starting")
 
     try:
-        status = await allocate_resources()
+        status = await allocate_resources(request)
     except CstarAllocationError as ex:
         print(f"Resource allocation did not complete. Exception is: {ex}")
         status = TaskStatus.Failed
@@ -163,4 +164,4 @@ async def run_flow() -> TaskStatus:
 
 if __name__ == "__main__":
     """Execute the flow to allocate job resources."""
-    run_flow()
+    asyncio.run(run_get_allocation_flow(PrepareLocalComputeRequest()))
