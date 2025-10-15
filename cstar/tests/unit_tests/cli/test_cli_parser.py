@@ -76,8 +76,6 @@ def test_cli_workplan_no_action(
     "args",
     [
         ["workplan", "run"],
-        ["workplan", "run", "--path"],
-        ["workplan", "run", "-p"],
     ],
 )
 def test_cli_workplan_run_no_path(
@@ -99,7 +97,6 @@ def test_cli_workplan_run_no_path(
     # Sample output
     # FAILED cstar/tests/unit_tests/cli/test_cli.py::test_cli_workplan_run_no_path[args1] -
     # AssertionError: assert 'arguments are required' in ' usage: cstar workplan run [-h]
-    # -p PATH\ncstar workplan run: error: argument -p/--path: expected one argument\n'
 
     with pytest.raises(SystemExit):
         _ = parser.parse_args(args)
@@ -126,7 +123,7 @@ def test_cli_workplan_run_ok(
     parser = build_parser()
 
     exp_path = "missing.yaml"
-    args = parser.parse_args(["workplan", "run", "--path", exp_path])
+    args = parser.parse_args(["workplan", "run", exp_path])
 
     # confirm that the input value is set in the args
     assert args.path == exp_path
