@@ -1,3 +1,4 @@
+import asyncio
 from unittest import mock
 
 import pytest
@@ -14,4 +15,4 @@ def fake_sacct_result() -> str:
 @pytest.mark.usefixtures("prefect_server")
 def test_submission_flow(fake_sacct_result: str) -> None:
     with mock.patch("cstar.orchestration.xxxxx", new=fake_sacct_result):
-        submission.run_flow()
+        asyncio.run(submission.run_flow())
