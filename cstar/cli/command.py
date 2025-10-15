@@ -124,7 +124,7 @@ class RunBlueprintCommand(Command):
 
 
 class GenerateTemplateCommand(Command):
-    """A command used to trigger generation of a template blueprint."""
+    """A command used to trigger generation of a YAML template."""
 
     action: t.Literal["template"] = "template"
 
@@ -132,7 +132,7 @@ class GenerateTemplateCommand(Command):
     """The type of template to generate."""
 
     path: Path | None = None
-    """Path to the desired output file.
+    """Path to the desired output directory.
 
     If not provided, the template is written to stdout.
     """

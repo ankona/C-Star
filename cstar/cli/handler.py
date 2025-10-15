@@ -1,5 +1,6 @@
-import shutil
+import json
 from functools import singledispatch
+from pathlib import Path
 
 from cstar.cli.command import (
     CheckBlueprintCommand,
@@ -10,6 +11,7 @@ from cstar.cli.command import (
     RunBlueprintCommand,
     RunWorkplanCommand,
 )
+from cstar.orchestration.models import RomsMarblBlueprint, TaskStatus, Workplan
 from cstar.orchestration.tasks.blueprint import (
     run_validate_blueprint_flow,
     validate_blueprint,
@@ -93,17 +95,55 @@ async def _(command: GenerateTemplateCommand) -> None:
         The command to process
     """
     system_mgr = CStarSystemManager()
-    tpl_path = system_mgr.environment.template_root / f"{command.template}.yaml"
+    tpl_name = f"{command.template}.yaml"
+    schema_name = f"{command.template}-schema.yaml"
+    tpl_source_path = system_mgr.environment.template_root / tpl_name
 
-    if not tpl_path.exists():
-        print(f"Unable to read template file from `{tpl_path}`.")
+    if not tpl_source_path.exists():
+        print(f"Unable to read template file from `{tpl_source_path}`.")
 
-    if command.path is None:
-        print(tpl_path.read_text(encoding="utf-8"))
+    schema_path: Path | None = None
+    template_path: Path | None = None
+
+    if command.path is not None:
+        command.path.mkdir(parents=True, exist_ok=True)
+        template_path = command.path / tpl_name
+        schema_path = command.path / schema_name
+
+    if command.template == "workplan":
+        schema = json.dumps(Workplan.model_json_schema(), indent=4)
     else:
-        command.path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(tpl_path, command.path)
-        print(f"Empty template written to `{command.path}`")
+        schema = json.dumps(RomsMarblBlueprint.model_json_schema(), indent=4)
+
+    if schema_path:
+        schema_ref = f"# yaml-language-server: $schema=file://{schema_path}"
+    else:
+        schema_ref = "# yaml-language-server: $schema=<schema-uri>"
+
+    template = tpl_source_path.read_text(encoding="utf-8")
+    template_lines = template.split("\n")
+    template_lines[0] = schema_ref
+    template = "\n".join(template_lines)
+
+    if template_path and schema_path:
+        schema_path.write_text(schema, encoding="utf-8")
+        template_path.write_text(template, encoding="utf-8")
+
+        print(f"{command.template} schema written to `{schema_path}`")
+        print(f"{command.template} template written to `{template_path}`")
+    else:
+        delimiter = "*" * 80
+
+        print(delimiter)
+        print(f"* {command.template} schema")
+        print(delimiter)
+        print(f"{schema}\n")
+
+        print(delimiter)
+        print(f"* {command.template} template")
+        print(delimiter)
+        print(f"{template}\n\n")
+
 
 
 @handle_command.register(RunWorkplanCommand)
