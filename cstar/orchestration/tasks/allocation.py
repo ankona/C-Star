@@ -1,6 +1,5 @@
 import asyncio
 from functools import singledispatchmethod
-from pathlib import Path
 
 from prefect import flow, task
 
@@ -113,37 +112,40 @@ class ResourceAllocationHandler:
     retries=5,
     retry_delay_seconds=[2, 4, 8, 16, 32],
 )
-async def allocate_resources(request: PrepareComputeRequest) -> TaskStatus:
+async def allocate_resources(request: PrepareComputeRequest) -> PrepareComputeResponse:
     """Submit a blocking request to perform required resource allocation(s).
 
     Returns
     -------
-    TaskStatus
+    str
+        The slurm job ID for the allocation
     """
     # if not task_id:
     #     raise ValueError("Cannot allocate resources without resource specification.")
 
     handler = ResourceAllocationHandler()
-    response = handler.handle()
+    response = handler.handle()  # todo: consider keeping req/resp in this layer?
     print(f"Result of resource allocation is: {response}")
 
-    run_key = "run-key"  # TODO: what is this?
-    status = response.status
+    # run_key = "run-key"  # TODO: what is this?
+    # status = response.status
+    #
+    # if status > TaskStatus.Active:
+    #     asset_path = Path(f"allocate-{run_key}.txt")
+    #
+    #     with asset_path.open("w", encoding="utf-8") as fp:
+    #         fp.write(response.model_dump_json())
+    # else:
+    #     msg = f"Resource allocation is not complete: `{status}`"
+    #     raise CstarAllocationError(status, msg)
 
-    if status > TaskStatus.Active:
-        asset_path = Path(f"allocate-{run_key}.txt")
-
-        with asset_path.open("w", encoding="utf-8") as fp:
-            fp.write(response.model_dump_json())
-    else:
-        msg = f"Resource allocation is not complete: `{status}`"
-        raise CstarAllocationError(status, msg)
-
-    return status
+    return response
 
 
 @flow(log_prints=True)
-async def run_get_allocation_flow(request: PrepareComputeRequest) -> TaskStatus:
+async def run_get_allocation_flow(
+    request: PrepareComputeRequest,
+) -> PrepareComputeResponse:
     """Execute a resource allocation workflow.
 
     Returns
@@ -153,13 +155,13 @@ async def run_get_allocation_flow(request: PrepareComputeRequest) -> TaskStatus:
     print("Resource allocation flow starting")
 
     try:
-        status = await allocate_resources(request)
+        resp = await allocate_resources(request)
     except CstarAllocationError as ex:
         print(f"Resource allocation did not complete. Exception is: {ex}")
-        status = TaskStatus.Failed
+        # status = TaskStatus.Failed
 
-    print(f"Resource allocation flow complete: {status}")
-    return status
+    print(f"Resource allocation flow complete: {resp}")
+    return resp
 
 
 if __name__ == "__main__":

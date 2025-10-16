@@ -6,6 +6,8 @@ from prefect import flow, task
 
 from cstar.orchestration.models import Step
 from cstar.orchestration.orchestrator import Launcher, SlurmLauncher, Task, TaskStatus
+from cstar.orchestration.tasks import allocation
+from cstar.orchestration.tasks.request import PrepareSlurmComputeRequest
 
 
 @task
@@ -30,6 +32,8 @@ async def submit_slurm_job(step: Step | None = None) -> dict[str, Task]:
         raise RuntimeError(msg)
 
     job_id = os.getenv("SLURM_JOB_ID")
+    if not job_id:
+        await allocation.run_get_allocation_flow(PrepareSlurmComputeRequest())
 
     launcher = SlurmLauncher(job_id=job_id)
     tasks = launcher.launch([step])
