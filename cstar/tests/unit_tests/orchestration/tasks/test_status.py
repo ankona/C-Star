@@ -43,7 +43,7 @@ def mock_task(mock_step: Step) -> t.Generator[Task]:
 
 # @pytest.mark.usefixtures("prefect_server")
 @pytest.mark.asyncio
-async def test_status_flow_fail(mock_task: Task) -> None:
+async def test_status_flow_fail(tmp_path: Path, mock_task: Task) -> None:
     """Verify that the status flow fails if the task is still in progress."""
     launcher = Launcher()
     base = status.check_status
@@ -91,6 +91,7 @@ async def test_status_flow_fail(mock_task: Task) -> None:
             task_id=str(
                 mock_task.task_id
             ),  # todo: slurm task id is a string here but uuid inside.
+            asset_root=tmp_path.as_posix(),
             # TODO (cont'd) did i just want to re-use name and avoid direct use of tid?
         )
         results = await status.handle_request(request)
@@ -100,7 +101,7 @@ async def test_status_flow_fail(mock_task: Task) -> None:
 
 
 # @pytest.mark.usefixtures("prefect_server")
-async def test_status_task_retry(mock_task: Task) -> None:
+async def test_status_task_retry(tmp_path: Path, mock_task: Task) -> None:
     """Verify that the status task retries until the task is done."""
     launcher = Launcher()
 
@@ -158,7 +159,10 @@ async def test_status_task_retry(mock_task: Task) -> None:
         # mock.patch.object(status, "check_status", task_fn),
     ):
         request = CheckSlurmStatusRequest(
-            name=mock_task.name, job_id="mock-job-id", task_id=mock_task.name
+            name=mock_task.name,
+            job_id="mock-job-id",
+            task_id=mock_task.name,
+            asset_root=tmp_path.as_posix(),
         )
         # result = await status.check_status(request)
         result = await task_fn(request)
