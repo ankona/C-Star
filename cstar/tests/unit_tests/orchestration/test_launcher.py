@@ -1,4 +1,3 @@
-import time
 from pathlib import Path
 from unittest import mock
 
@@ -155,8 +154,11 @@ def test_task_update_status(tmp_path: Path) -> None:
     assert status_launched == TaskStatus.Active
 
     # confirm status is retrieved after launcher updates tracking information
-    time.sleep(0.05)
-    launcher.update()
+    with mock.patch(
+        "cstar.orchestration.orchestrator.Launcher._query_status",
+        return_value={step.name: TaskStatus.Done},
+    ):
+        launcher.update()
 
     status_reported = launcher.report(task)
 
