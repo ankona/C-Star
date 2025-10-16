@@ -654,8 +654,8 @@ class SlurmLauncher(Launcher):
     job_id: str | None
 
     def __init__(self, job_id: str | None = None) -> None:
-        # self.job_id = job_id if job_id else self.allocate()
-        ...
+        self.job_id = job_id  # if job_id else self.allocate()
+        # TODO: solve for non-pre-allocated compute
 
     def allocate(self) -> str:
         """Create a SLURM allocation.

@@ -117,8 +117,9 @@ class StatusCheckHandler:
         CheckStatusResponse
         """
         self.launcher = get_slurm_launcher(request.job_id)
+
         status = self.launcher.query_single(
-            task_id=request.task_id,
+            task_id=request.name,  # something is wrong w/task id / name usage. need to remove task_id and just see how this works without the uuid
         )
 
         return CheckStatusResponse(
@@ -153,7 +154,7 @@ async def retry_handler(task, task_run, state) -> bool:
 # TODO: consider retry_delay_seconds=exponential_backoff(backoff_factor=2)
 # @materialize("file://status-jobid-taskid.txt")
 @task(
-    retries=99,
+    retries=10,
     retry_delay_seconds=5,
     retry_condition_fn=retry_handler,
 )
@@ -169,7 +170,7 @@ async def check_status(request: CheckStatusRequest) -> TaskStatus:
     -------
     TaskStatus
     """
-    if not task_id:
+    if not request.name:
         raise ValueError("Cannot check status without a task id.")
 
     handler = StatusCheckHandler()
@@ -180,31 +181,17 @@ async def check_status(request: CheckStatusRequest) -> TaskStatus:
     status = response.status
 
     if status > TaskStatus.Active:
-        asset_path = Path(f"status-{request.request_id}")
+        # find a prefect-y way to set this
+        asset_root = Path(request.asset_root) if request.asset_root else Path.cwd()
+        asset_path = asset_root / f"status-{request.request_id}"
 
         with asset_path.open("w", encoding="utf-8") as fp:
             fp.write(str(status))
     else:
-        msg = f"Status check for task `{task_id}` is not complete: `{status}`"
+        msg = f"Status check for task `{request.name}` is not complete: `{status}`"
         raise CstarIncompleteError(status, msg)
 
     return status
-
-
-# @flow(log_prints=True)
-# async def run_flow(job_id: str, task_id: str) -> dict[str, TaskStatus]:
-#     """Execute a status check workflow that succeeds only when the task is done."""
-#     print("Job status flow starting")
-#
-#     try:
-#         status = await check_status(job_id=job_id, task_id=task_id)
-#     except CstarIncompleteError as ex:
-#         print(f"Status check did not complete. Task status is: {ex.status}")
-#         return {task_id: ex.status}
-#
-#     print(f"Job status flow complete: {status}")
-#
-#     return {task_id: status}
 
 
 @flow(log_prints=True)
@@ -224,14 +211,14 @@ async def handle_request(request: CheckStatusRequest) -> dict[str, TaskStatus]:
     print("Job status flow starting")
 
     try:
-        status = await check_status(job_id=job_id, task_id=task_id)
+        status = await check_status(request)
     except CstarIncompleteError as ex:
         print(f"Status check did not complete. Task status is: {ex.status}")
-        return {task_id: ex.status}
+        return {request.name: ex.status}
 
     print(f"Job status flow complete: {status}")
 
-    return {task_id: status}
+    return {request.name: status}
 
 
 if __name__ == "__main__":

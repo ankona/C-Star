@@ -106,7 +106,7 @@ class GraphPlanner(Planner):
         #  testing and are not 100% desired. we may need it for loading from
         #  a serialized graph, though (e.g. if state is stored in the graph).
         p = Path("step")
-        # TODO: ensure the task is serialized onto the nodes to use here.
+        # TODO: ensure the task is serialized onto the nodes to use in place of this hack.
         p.touch()
 
         self.step_map = {
@@ -319,7 +319,7 @@ class GraphPlanner(Planner):
 
         plt.tight_layout(pad=2.0)
 
-        write_to = image_directory / f"{slugify(title)}.png"
+        write_to = image_directory / f"{slugify(title).lower()}.png"
         plt.savefig(write_to, bbox_inches="tight", dpi=500)  # was "tight"
 
         return write_to
@@ -351,14 +351,15 @@ class GraphPlanner(Planner):
         if not self.graph and GraphPlanner.START_NODE not in self.graph.nodes:
             return []
 
-        self.render(
-            self.graph,
-            self.color_map,
-            self.name_map,
-            self.workplan.name,
-            artifact_dir or Path(),
-            layout="bfs",
-        )
+        if artifact_dir:
+            self.render(
+                self.graph,
+                self.color_map,
+                self.name_map,
+                self.workplan.name,
+                artifact_dir or Path(),
+                layout="bfs",
+            )
         sorted_nodes: list[str] = list(nx.topological_sort(self.graph))
 
         g_plan = nx.DiGraph(
@@ -375,15 +376,16 @@ class GraphPlanner(Planner):
             GraphPlanner.NODE_ACTION_KEY,
         )
         g_plan = self._add_marker_nodes(g_plan)
-        self.render(
-            g_plan,
-            self.color_map,
-            self.name_map,
-            f"plan-{self.workplan.name}",
-            artifact_dir or Path(),
-            layout="circular",
-            cmap="Oranges",
-        )
+        if artifact_dir:
+            self.render(
+                g_plan,
+                self.color_map,
+                self.name_map,
+                f"plan-{self.workplan.name}",
+                artifact_dir or Path(),
+                layout="circular",
+                cmap="Oranges",
+            )
         print(f"Ordered plan: {sorted_nodes}")
         return [
             self.step_map[node]

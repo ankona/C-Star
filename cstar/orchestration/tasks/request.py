@@ -8,6 +8,8 @@ class Request(BaseModel):
     request_id: uuid.UUID = Field(default_factory=uuid.uuid4, frozen=True, init=False)
     """Unique identifier of a request."""
 
+    asset_root: str | None = None
+
 
 class ValidateWorkplanRequest(Request):
     path: FilePath
@@ -52,7 +54,7 @@ class CheckStatusRequest(Request):
     category: t.ClassVar[str]
     """The category identifying how the job was run."""
 
-    name: str
+    name: str  # TODO: determine if this should be on this base class or if i should use a subclass w/more intuitive attribute naming
     """User-defined name for a task."""
 
 
