@@ -86,7 +86,7 @@ async def test_status_flow_fail(tmp_path: Path, mock_task: Task) -> None:
         launcher.launch([t.cast(Step, mock_task.source)])
 
         request = CheckSlurmStatusRequest(
-            name=mock_task.name,
+            task_name=mock_task.name,
             job_id="mock-job-id",
             task_id=str(
                 mock_task.task_id
@@ -95,7 +95,7 @@ async def test_status_flow_fail(tmp_path: Path, mock_task: Task) -> None:
             # TODO (cont'd) did i just want to re-use name and avoid direct use of tid?
         )
         results = await status.handle_request(request)
-        result = results[request.name]
+        result = results[request.task_name]
 
     assert result == TaskStatus.Active
 
@@ -159,7 +159,7 @@ async def test_status_task_retry(tmp_path: Path, mock_task: Task) -> None:
         # mock.patch.object(status, "check_status", task_fn),
     ):
         request = CheckSlurmStatusRequest(
-            name=mock_task.name,
+            task_name=mock_task.name,
             job_id="mock-job-id",
             task_id=mock_task.name,
             asset_root=tmp_path.as_posix(),
@@ -231,7 +231,7 @@ async def test_status_flow_retry(tmp_path: Path, mock_task: Task) -> None:
 
         request = CheckSlurmStatusRequest(
             # again... name here is re-used poorly
-            name=mock_task.name,
+            task_name=mock_task.name,
             job_id="mock-job-id",
             task_id=mock_task.name,
             asset_root=tmp_path.as_posix(),

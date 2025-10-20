@@ -59,6 +59,22 @@ class CheckStatusResponse(Response):
     """The status of the target."""
 
 
+class CheckSlurmStatusResponse(CheckStatusResponse):
+    """Common response attributes for a status check request."""
+
+    category: str = "slurm"
+    """The category of the target that was checked."""
+
+    job_id: str
+    """The SLURM job id."""
+
+    task_id: str
+    """The SLURM task id."""
+
+    name: str
+    """The SLURM task name."""
+
+
 class PrepareComputeResponse(Response):
     """Common response attributes for a resource allocation request."""
 

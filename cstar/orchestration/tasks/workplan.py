@@ -1,23 +1,19 @@
-import typing as t
 from pathlib import Path
 
 from prefect import flow
 
 from cstar.orchestration.models import TaskStatus, Workplan
-from cstar.orchestration.orchestrator import Orchestrator, SlurmLauncher
+
+# from cstar.orchestration.orchestrator import Orchestrator, PrefectLauncher
+# from cstar.orchestration.planning import GraphPlanner
 from cstar.orchestration.planning import GraphPlanner
 from cstar.orchestration.serialization import deserialize
-from cstar.orchestration.tasks.allocation import run_get_allocation_flow
 from cstar.orchestration.tasks.plan import validate_workplan
 from cstar.orchestration.tasks.request import (
-    PrepareSlurmComputeRequest,
     RunWorkplanRequest,
     ValidateWorkplanRequest,
 )
-from cstar.orchestration.tasks.response import (
-    PrepareSlurmComputeResponse,
-    RunWorkplanResponse,
-)
+from cstar.orchestration.tasks.response import RunWorkplanResponse
 
 ACTION_NAME = "run workplan"
 
@@ -37,7 +33,6 @@ async def run_workplan(
     RunWorkplanResponse
     """
     print(f"{ACTION_NAME.capitalize()} action is starting")
-    plan_path: Path | None = None
 
     validation_resp = await validate_workplan(
         ValidateWorkplanRequest(path=request.path)
@@ -45,32 +40,28 @@ async def run_workplan(
     if not validation_resp.success:
         raise ValueError(f"Invalid workplan found at `{request.path}`")
 
-    prep_request = PrepareSlurmComputeRequest()
-    prep_resp = await run_get_allocation_flow(prep_request)
-    slurm_resp = t.cast(PrepareSlurmComputeResponse, prep_resp)
-
-    if not slurm_resp.job_id:
-        raise RuntimeError("Unable to complete resource allocation")
+    # prep_request = PrepareSlurmComputeRequest()
+    # prep_resp = await run_get_allocation_flow(prep_request)
+    # slurm_resp = t.cast(PrepareSlurmComputeResponse, prep_resp)
+    #
+    # if not slurm_resp.job_id:
+    #     raise RuntimeError("Unable to complete resource allocation")
 
     try:
         if workplan := deserialize(request.path, Workplan):
-            planner = GraphPlanner(workplan)
-            launcher = SlurmLauncher(job_id=slurm_resp.job_id)
-
-            orchestrator = Orchestrator(
-                planner,
-                launcher,
-            )
-
-            orchestrator.run()
+            ...
+            _ = GraphPlanner(workplan)
+            # # launcher = SlurmLauncher(job_id=slurm_resp.job_id)
+            # launcher = PrefectLauncher()  # isn't this circular...
+            # # consider
+            # orchestrator = Orchestrator(planner, launcher)
+            #
+            # orchestrator.schedule()
         else:
             print(f"The workplan at `{request.path}` could not be loaded")
 
     except ValueError as ex:
         print(f"Error occurred: {ex}")
-
-    if plan_path is None:
-        raise ValueError("no plan could be generated")
 
     response = RunWorkplanResponse(
         request_id=request.request_id,

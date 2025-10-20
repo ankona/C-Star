@@ -54,7 +54,7 @@ class CheckStatusRequest(Request):
     category: t.ClassVar[str]
     """The category identifying how the job was run."""
 
-    name: str  # TODO: determine if this should be on this base class or if i should use a subclass w/more intuitive attribute naming
+    task_name: str  # TODO: determine if this should be on this base class or if i should use a subclass w/more intuitive attribute naming
     """User-defined name for a task."""
 
 

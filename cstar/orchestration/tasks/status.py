@@ -18,7 +18,10 @@ from cstar.orchestration.tasks.request import (
     CheckSlurmStatusRequest,
     CheckStatusRequest,
 )
-from cstar.orchestration.tasks.response import CheckStatusResponse
+from cstar.orchestration.tasks.response import (
+    CheckSlurmStatusResponse,
+    CheckStatusResponse,
+)
 
 
 def get_local_launcher() -> Launcher:
@@ -90,12 +93,12 @@ class StatusCheckHandler:
             source=ProcessHandle(
                 pid=request.pid,
                 created_on=request.create_date,
-                name=request.name,
+                name=request.task_name,
                 key=request.task_id,
             )
         )
 
-        status = self.launcher.query_single(task)
+        status = await self.launcher.query_single(task)
 
         return CheckStatusResponse(
             category=request.category,
@@ -118,14 +121,17 @@ class StatusCheckHandler:
         """
         self.launcher = get_slurm_launcher(request.job_id)
 
-        status = self.launcher.query_single(
-            task_id=request.name,  # something is wrong w/task id / name usage. need to remove task_id and just see how this works without the uuid
+        status = await self.launcher.query_single(
+            task_id=request.task_name,  # something is wrong w/task id / name usage. need to remove task_id and just see how this works without the uuid
         )
 
-        return CheckStatusResponse(
+        return CheckSlurmStatusResponse(
             category=request.category,
             status=status,
             request_id=request.request_id,
+            job_id=request.job_id,
+            task_id=request.task_id,
+            name=request.task_name,
         )
 
 
@@ -170,13 +176,13 @@ async def check_status(request: CheckStatusRequest) -> TaskStatus:
     -------
     TaskStatus
     """
-    if not request.name:
+    if not request.task_name:
         raise ValueError("Cannot check status without a task id.")
 
     handler = StatusCheckHandler()
     response = await handler.handle(request)
 
-    print(f"Current status of task: {request.name} is status: {response.status}")
+    print(f"Current status of task: {request.task_name} is status: {response.status}")
 
     status = response.status
 
@@ -188,7 +194,7 @@ async def check_status(request: CheckStatusRequest) -> TaskStatus:
         with asset_path.open("w", encoding="utf-8") as fp:
             fp.write(str(status))
     else:
-        msg = f"Status check for task `{request.name}` is not complete: `{status}`"
+        msg = f"Status check for task `{request.task_name}` is not complete: `{status}`"
         raise CstarIncompleteError(status, msg)
 
     return status
@@ -214,11 +220,11 @@ async def handle_request(request: CheckStatusRequest) -> dict[str, TaskStatus]:
         status = await check_status(request)
     except CstarIncompleteError as ex:
         print(f"Status check did not complete. Task status is: {ex.status}")
-        return {request.name: ex.status}
+        return {request.task_name: ex.status}
 
     print(f"Job status flow complete: {status}")
 
-    return {request.name: status}
+    return {request.task_name: status}
 
 
 if __name__ == "__main__":
@@ -227,7 +233,9 @@ if __name__ == "__main__":
     task_id = os.environ.get("TASK_ID", "")  # TODO: fix this nonsense
     task_name = os.environ.get("TASK_NAME", "")  # TODO: fix this empty value
 
-    request = CheckSlurmStatusRequest(name=task_name, job_id=job_id, task_id=task_id)
+    request = CheckSlurmStatusRequest(
+        task_name=task_name, job_id=job_id, task_id=task_id
+    )
     status_results = handle_request(request)
 
     print(f"Status check result: {status_results}")

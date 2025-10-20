@@ -124,7 +124,8 @@ def test_launcher_reportall_mixed_inputs(tmp_path: Path) -> None:
     assert statuses[step2.name] == TaskStatus.Unknown
 
 
-def test_task_update_status(tmp_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_task_update_status(tmp_path: Path) -> None:
     """Verify that task status is updated correctly."""
     launcher = Launcher()
 
@@ -158,7 +159,7 @@ def test_task_update_status(tmp_path: Path) -> None:
         "cstar.orchestration.orchestrator.Launcher._query_status",
         return_value={step.name: TaskStatus.Done},
     ):
-        launcher.update()
+        await launcher.update()
 
     status_reported = launcher.report(task)
 

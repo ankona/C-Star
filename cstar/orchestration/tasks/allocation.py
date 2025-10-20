@@ -124,7 +124,7 @@ async def allocate_resources(request: PrepareComputeRequest) -> PrepareComputeRe
     #     raise ValueError("Cannot allocate resources without resource specification.")
 
     handler = ResourceAllocationHandler()
-    response = handler.handle()  # todo: consider keeping req/resp in this layer?
+    response = handler.handle(request)  # todo: consider keeping req/resp in this layer?
     print(f"Result of resource allocation is: {response}")
 
     # run_key = "run-key"  # TODO: what is this?
