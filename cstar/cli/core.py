@@ -118,7 +118,7 @@ class PathConverterAction(Action):
     ) -> None:
         """Convert the value supplied to the parameter into a `pathlib.Path` object.
 
-        See [docs](https://docs.python.org/3/library/argparse.html#action-classes)
+        See: https://docs.python.org/3/library/argparse.html#action-classes
         """
         if not values or not isinstance(values, str):
             setattr(namespace, self.dest, values)
