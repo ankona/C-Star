@@ -36,8 +36,8 @@ def build_parser() -> tuple[ArgumentParser, _SubParsersAction]:
 
     Returns
     -------
-    ArgumentParser
-        The parser
+    tuple[ArgumentParser, _SubParsersAction]
+        Tuple containing the main parser and the subparser for commands.
     """
     parser = ArgumentParser("cstar")
 
@@ -64,6 +64,11 @@ def cli_activity(func: RegistryFn) -> RegistryFn:
     ----------
     func : RegistryFn
         Function to automatically register as a CLI action.
+
+    Returns
+    -------
+    RegistryFn
+        The original CLI registry function
     """
     a_tree = _action_tree
     c_tree = _command_tree
@@ -111,7 +116,10 @@ class PathConverterAction(Action):
         values: str | t.Sequence[str] | None,
         option_string=None,
     ):
-        """Convert the value supplied to the parameter into a `pathlib.Path` object."""
+        """Convert the value supplied to the parameter into a `pathlib.Path` object.
+
+        See [docs](https://docs.python.org/3/library/argparse.html#action-classes)
+        """
         if not values or not isinstance(values, str):
             setattr(namespace, self.dest, values)
             return
