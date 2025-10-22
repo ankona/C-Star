@@ -115,7 +115,7 @@ class PathConverterAction(Action):
         namespace: Namespace,
         values: str | t.Sequence[str] | None,
         option_string=None,
-    ):
+    ) -> None:
         """Convert the value supplied to the parameter into a `pathlib.Path` object.
 
         See [docs](https://docs.python.org/3/library/argparse.html#action-classes)
