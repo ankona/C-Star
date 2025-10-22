@@ -1,5 +1,3 @@
-import uuid
-
 from pydantic import BaseModel, DirectoryPath, Field, FilePath
 
 from cstar.orchestration.models import TaskStatus
@@ -8,7 +6,7 @@ from cstar.orchestration.models import TaskStatus
 class Response(BaseModel):
     """Common response attributes."""
 
-    request_id: uuid.UUID = Field(default_factory=uuid.uuid4, frozen=True)
+    request_id: str = Field(frozen=True)
     """Unique identifier of the source request."""
 
 

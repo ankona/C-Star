@@ -1,4 +1,3 @@
-import asyncio
 import dataclasses
 import itertools
 import subprocess
@@ -16,13 +15,13 @@ from pydantic import BaseModel, Field
 from cstar.base.utils import _run_cmd
 from cstar.orchestration.models import Application, Step, TaskStatus
 from cstar.orchestration.planning import Planner
-from cstar.orchestration.tasks.allocation import run_get_allocation_flow
-from cstar.orchestration.tasks.request import (
-    CheckSlurmStatusRequest,
-    PrepareSlurmComputeRequest,
-)
-from cstar.orchestration.tasks.response import PrepareSlurmComputeResponse
-from cstar.orchestration.tasks.status import handle_request as handle_status_request
+
+# from cstar.orchestration.tasks.allocation import run_get_allocation_flow
+# from cstar.orchestration.tasks.request import (
+#     CheckSlurmStatusRequest,
+#     PrepareSlurmComputeRequest,
+# )
+# from cstar.orchestration.tasks.status import handle_request as handle_status_request
 from cstar.orchestration.utils import slugify
 
 
@@ -763,166 +762,167 @@ class SlurmLauncher(Launcher):
         return status_map
 
 
-class PrefectLauncher(Launcher):
-    """Manage tasks managed by prefect."""
-
-    def __init__(self) -> None:
-        self.job_id = ""
-
-    def allocate(self) -> str:
-        """Create a SLURM allocation.
-
-        Returns
-        -------
-        str : The SLURM job ID
-        """
-        # TODO: get an allocation...
-        self.job_id = "mock-slurm-job-id"
-
-        compute_req = PrepareSlurmComputeRequest()  # todo: populate
-        alloc_resp = run_get_allocation_flow(compute_req)
-        slurm_alloc_resp = t.cast(PrepareSlurmComputeResponse, alloc_resp)
-        self.job_id = slurm_alloc_resp.job_id
-        # todo: must be able to use pre-existing job id...
-
-        return self.job_id
-
-    @classmethod
-    def _create_task(cls, step: Step) -> Task:
-        """Placeholder so i can inject return codes until tasks are really started."""
-        task = Task(source=step)
-
-        # prefect task are alllllll blueprints
-        # worker_task = WorkerTask(step.blueprint)
-        # worker_task.start()
-
-        # scott notes
-        # - only two prefect tasks are submit to: (submit a blueprint) slurm, check job status
-        # - orchestration around it to get status, plan, etc
-        # - job a, job b
-        #   separate allocations / compute reservations
-        #  - i am not sure i can can create slurm deps betweewn alocations
-        #  DB - register tasks
-        #  - research
-        #    - can we schedule future jobs
-
-        # print(task.name)
-        # print(task.status)
-        # print(step.name)
-        # print(step.application)
-        # print(step.blueprint)
-        # print(step.depends_on)
-        # print(step.blueprint_overrides)
-        # print(step.compute_overrides)
-        # print(step.workflow_overrides)
-        #
-        # task.start()
-
-        # TODO: execute the task itself via prefect flow
-
-        # TODO: execute the monitoring task via prefect flow
-
-        return task
-
-    async def _retrieve_status(
-        self,
-        task_name: str,
-        task_id: str | None = None,
-    ) -> list[tuple[str, str, str]]:
-        """Query SLURM for the status of a job or task.
-
-        Parameters
-        ----------
-        slurm_job_id : str
-            The ID of the main job
-
-        Returns
-        -------
-        status_lines: list[tuple[str, str, str]]
-            Output of the query; tuples containing [job-id, job-status, job-name]
-
-        Raises
-        ------
-        ValueError
-            If an invalid `slurm_job_id` is provided
-        """
-        if not self.job_id or not self.job_id.strip():
-            raise ValueError("Invalid slurm_job_id provided")
-
-        request = CheckSlurmStatusRequest(
-            task_name=task_name,
-            job_id=self.job_id,
-            task_id=task_id or "",
-        )
-        status_resp = await handle_status_request(request)
-        status = status_resp.get(task_name)
-
-        # todo: determine if i need task id to be non-nullable...
-        return [(task_id or "", str(status), task_name)]
-
-    @t.override
-    async def _query_status(
-        self, task_ids: t.Sequence[str] | None = None
-    ) -> dict[str, TaskStatus]:
-        """Query the workload manager for current task statuses for the current
-        allocation (job id).
-
-        Parameters
-        ----------
-        tasks : (optional) list of Task
-            Results are filtered to include the supplied tasks, when present.
-        """
-        # todo: create a batch retrieve status to avoid the null name/taskid type issues
-        if not task_ids:
-            # this should not remain after creating batch retrieve.
-            return {}
-
-        status_checks = [self._retrieve_status(name) for name in task_ids]
-        status_lines = await asyncio.gather(*status_checks)
-
-        results: dict[str, TaskStatus] = {}
-
-        for _jid, raw_status, job_name in itertools.chain.from_iterable(status_lines):
-            status = SlurmJobStatus.map_status(raw_status)
-            results[job_name] = status
-
-        if task_ids:
-            results = {task_id: results[task_id] for task_id in task_ids}
-
-        return results
-
-    async def query(
-        self, tasks: list[Task] | None = None, task_ids: t.Sequence[str] | None = None
-    ) -> dict[str, TaskStatus]:
-        # def query(self, task_ids: list[str] | None = None) -> dict[str, TaskStatus]:
-        """Retrieve status for all tasks in the job."""
-        status_map = await self._query_status(task_ids)
-        if not status_map:
-            print(f"No status results found for the job: {self.job_id}")
-
-        return status_map
-
-
-# class LocalLauncher(Launcher):
-#     """Manage tasks running on local processes."""
-
-#     def _query_status(self, tasks: t.Sequence[str]) -> None:
-#         """Must override method for launcher implementations..."""
-#         # slurm might...
-#         # sacct -j job_id
-#         # statuses = self.parse(t.name) for t in tasks
-#         # map(t.update, statuses)
-
-
-# class SuperfacLauncher(Launcher):
-#     """Manage tasks with the Superfacility API."""
-
-#     def _query_status(self, tasks: t.Sequence[str]) -> None:
-#         """Must override method for launcher implementations..."""
-#         # slurm might...
-#         # sacct -j job_id
-#         # statuses = self.parse(t.name) for t in tasks
-#         # map(t.update, statuses)
+# class PrefectLauncher(Launcher):
+#     """Manage tasks managed by prefect."""
+#
+#     def __init__(self) -> None:
+#         self.job_id = ""
+#
+#     def allocate(self) -> str:
+#         """Create a SLURM allocation.
+#
+#         Returns
+#         -------
+#         str : The SLURM job ID
+#         """
+#         # TODO: get an allocation...
+#         self.job_id = "mock-slurm-job-id"
+#
+#         compute_req = PrepareSlurmComputeRequest()  # todo: populate
+#         alloc_resp = run_get_allocation_flow(compute_req)
+#         slurm_alloc_resp = t.cast(PrepareSlurmComputeResponse, alloc_resp)
+#         self.job_id = slurm_alloc_resp.job_id
+#         # todo: must be able to use pre-existing job id...
+#
+#         return self.job_id
+#
+#     @classmethod
+#     def _create_task(cls, step: Step) -> Task:
+#         """Placeholder so i can inject return codes until tasks are really started."""
+#         task = Task(source=step)
+#
+#         # prefect task are alllllll blueprints
+#         # worker_task = WorkerTask(step.blueprint)
+#         # worker_task.start()
+#
+#         # scott notes
+#         # - only two prefect tasks are submit to: (submit a blueprint) slurm, check job status
+#         # - orchestration around it to get status, plan, etc
+#         # - job a, job b
+#         #   separate allocations / compute reservations
+#         #  - i am not sure i can can create slurm deps betweewn alocations
+#         #  DB - register tasks
+#         #  - research
+#         #    - can we schedule future jobs
+#
+#         # print(task.name)
+#         # print(task.status)
+#         # print(step.name)
+#         # print(step.application)
+#         # print(step.blueprint)
+#         # print(step.depends_on)
+#         # print(step.blueprint_overrides)
+#         # print(step.compute_overrides)
+#         # print(step.workflow_overrides)
+#         #
+#         # task.start()
+#
+#         # TODO: execute the task itself via prefect flow
+#
+#         # TODO: execute the monitoring task via prefect flow
+#
+#         return task
+#
+#     async def _retrieve_status(
+#         self,
+#         task_name: str,
+#         task_id: str | None = None,
+#     ) -> list[tuple[str, str, str]]:
+#         """Query SLURM for the status of a job or task.
+#
+#         Parameters
+#         ----------
+#         slurm_job_id : str
+#             The ID of the main job
+#
+#         Returns
+#         -------
+#         status_lines: list[tuple[str, str, str]]
+#             Output of the query; tuples containing [job-id, job-status, job-name]
+#
+#         Raises
+#         ------
+#         ValueError
+#             If an invalid `slurm_job_id` is provided
+#         """
+#         if not self.job_id or not self.job_id.strip():
+#             raise ValueError("Invalid slurm_job_id provided")
+#
+#         request = CheckSlurmStatusRequest(
+#             task_name=task_name,
+#             job_id=self.job_id,
+#             task_id=task_id or "",
+#         )
+#         status_resp = await handle_status_request(request)
+#         status = status_resp.get(task_name)
+#
+#         # todo: determine if i need task id to be non-nullable...
+#         return [(task_id or "", str(status), task_name)]
+#
+#     @t.override
+#     async def _query_status(
+#         self, task_ids: t.Sequence[str] | None = None
+#     ) -> dict[str, TaskStatus]:
+#         """Query the workload manager for current task statuses for the current
+#         allocation (job id).
+#
+#         Parameters
+#         ----------
+#         tasks : (optional) list of Task
+#             Results are filtered to include the supplied tasks, when present.
+#         """
+#         # todo: create a batch retrieve status to avoid the null name/taskid type issues
+#         if not task_ids:
+#             # this should not remain after creating batch retrieve.
+#             return {}
+#
+#         status_checks = [self._retrieve_status(name) for name in task_ids]
+#         status_lines = await asyncio.gather(*status_checks)
+#
+#         results: dict[str, TaskStatus] = {}
+#
+#         for _jid, raw_status, job_name in itertools.chain.from_iterable(status_lines):
+#             status = SlurmJobStatus.map_status(raw_status)
+#             results[job_name] = status
+#
+#         if task_ids:
+#             results = {task_id: results[task_id] for task_id in task_ids}
+#
+#         return results
+#
+#     async def query(
+#         self, tasks: list[Task] | None = None, task_ids: t.Sequence[str] | None = None
+#     ) -> dict[str, TaskStatus]:
+#         # def query(self, task_ids: list[str] | None = None) -> dict[str, TaskStatus]:
+#         """Retrieve status for all tasks in the job."""
+#         status_map = await self._query_status(task_ids)
+#         if not status_map:
+#             print(f"No status results found for the job: {self.job_id}")
+#
+#         return status_map
+#
+#
+# # class LocalLauncher(Launcher):
+# #     """Manage tasks running on local processes."""
+#
+# #     def _query_status(self, tasks: t.Sequence[str]) -> None:
+# #         """Must override method for launcher implementations..."""
+# #         # slurm might...
+# #         # sacct -j job_id
+# #         # statuses = self.parse(t.name) for t in tasks
+# #         # map(t.update, statuses)
+#
+#
+# # class SuperfacLauncher(Launcher):
+# #     """Manage tasks with the Superfacility API."""
+#
+# #     def _query_status(self, tasks: t.Sequence[str]) -> None:
+# #         """Must override method for launcher implementations..."""
+# #         # slurm might...
+# #         # sacct -j job_id
+# #         # statuses = self.parse(t.name) for t in tasks
+# #         # map(t.update, statuses)
+#
 
 
 class Orchestrator:

@@ -1,19 +1,15 @@
-import asyncio
-import os
-from pathlib import Path
-
 from prefect import flow
 
+from cstar.cli.command import CheckBlueprintCommand
 from cstar.orchestration.models import RomsMarblBlueprint
 from cstar.orchestration.serialization import deserialize
-from cstar.orchestration.tasks.request import ValidateBlueprintRequest
 from cstar.orchestration.tasks.response import ValidateBlueprintResponse
 
 ACTION_NAME = "validate blueprint"
 
 
 async def validate_blueprint(
-    request: ValidateBlueprintRequest,
+    request: CheckBlueprintCommand,
 ) -> ValidateBlueprintResponse:
     """Validate a blueprint.
 
@@ -48,7 +44,7 @@ async def validate_blueprint(
 
 @flow(log_prints=True)
 async def run_validate_blueprint_flow(
-    request: ValidateBlueprintRequest,
+    request: CheckBlueprintCommand,
 ) -> ValidateBlueprintResponse:
     """Validate a blueprint within a flow.
 
@@ -63,31 +59,28 @@ async def run_validate_blueprint_flow(
     """
     print(f"{ACTION_NAME.capitalize()} flow is starting")
 
-    # validation_task = task(validate_blueprint, log_prints=True)
-    # response = await validation_task(request)
-
     response = await validate_blueprint(request)
 
     print(f"{ACTION_NAME.capitalize()} flow is complete: {response}")
     return response
 
 
-async def main() -> None:
-    """Execute the validation flow using arguments passed via environment variables.
-
-    Required Environment Variables:
-    - CSTAR_BLUEPRINT_PATH
-    """
-    print(f"{ACTION_NAME.capitalize()} main is starting")
-
-    path = os.environ.get("CSTAR_BLUEPRINT_PATH", "")
-
-    request = ValidateBlueprintRequest(path=Path(path))
-    validation_result = await run_validate_blueprint_flow(request)
-
-    print(f"{ACTION_NAME.capitalize()} main is complete: {validation_result}")
-
-
-if __name__ == "__main__":
-    """Execute a validation flow."""
-    asyncio.run(main())
+# async def main() -> None:
+#     """Execute the validation flow using arguments passed via environment variables.
+#
+#     Required Environment Variables:
+#     - CSTAR_BLUEPRINT_PATH
+#     """
+#     print(f"{ACTION_NAME.capitalize()} main is starting")
+#
+#     path = os.environ.get("CSTAR_BLUEPRINT_PATH", "")
+#
+#     request = ValidateBlueprintRequest(path=Path(path))
+#     validation_result = await run_validate_blueprint_flow(request)
+#
+#     print(f"{ACTION_NAME.capitalize()} main is complete: {validation_result}")
+#
+#
+# if __name__ == "__main__":
+#     """Execute a validation flow."""
+#     asyncio.run(main())
