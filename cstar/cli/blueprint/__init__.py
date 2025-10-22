@@ -1,3 +1,4 @@
-from cstar.cli.blueprint import blueprint, check, run, template
+from cstar.cli.blueprint import command
+from cstar.cli.blueprint.actions import check, run
 
-__all__ = ["blueprint", "check", "run", "template"]
+__all__ = ["command", "check", "run"]

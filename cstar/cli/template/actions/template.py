@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import textwrap
 import typing as t
 from pathlib import Path
@@ -10,9 +11,20 @@ from cstar.system.manager import cstar_sysmgr as system_mgr
 
 
 def handle(ns: argparse.Namespace) -> None:
-    """The action handler for the workplan-template action."""
-    template = ns.command
-    path = ns.path
+    """The action handler for the template-create action.
+
+    Triggers creation of a sample template.
+    """
+    interactive: bool = os.getenv("CSTAR_INTERACTIVE", "1") == "1"
+    template = ns.type
+    path: Path = ns.path
+
+    if path and not path.exists() and interactive:
+        do_create = input("The directory does not exist. Create it? (yes/no): ")
+        if "y" in do_create.lower():
+            path.mkdir(parents=True, exist_ok=False)
+        else:
+            raise ValueError("Unable to create template without valid directory")
 
     if path and not path.exists():
         raise ValueError(f"The specified directory does not exist: {path}")
@@ -23,7 +35,7 @@ def handle(ns: argparse.Namespace) -> None:
     tpl_source_path = system_mgr.environment.template_root / tpl_name
 
     if not tpl_source_path.exists():
-        raise ValueError(f"Unable to read template file from `{tpl_source_path}`.")
+        raise ValueError(f"Unable to read template file from `{tpl_source_path}`")
 
     schema_path: Path | None = None
     template_path: Path | None = None
@@ -77,27 +89,35 @@ def handle(ns: argparse.Namespace) -> None:
 
 @cli_activity
 def create_action() -> RegistryResult:
-    """Integrate the workplan-template command into the CLI."""
-    command: t.Literal["workplan"] = "workplan"
-    action: t.Literal["template"] = "template"
+    """Integrate the blueprint-template command into the CLI."""
+    command: t.Literal["template"] = "template"
+    action: t.Literal["create"] = "create"
 
     def _fn(sp: argparse._SubParsersAction) -> argparse.ArgumentParser:
-        """Add a parser for the command: `cstar workplan template -o ouput/directory`"""
+        """Add a parser for the command: `cstar template create -o path/to/output.yaml` -t workplan"""
         parser: argparse.ArgumentParser = sp.add_parser(
             action,
-            help="Generate an empty workplan.",
-            description="Generate an empty workplan.",
+            help="Generate an empty template.",
+            description="Generate an empty template.",
         )
         parser.add_argument(
             "-o",
             "--output",
             dest="path",
             help=(
-                "Output path for the workplan. If not provided, "
+                "Output path for the blueprint. If not provided, "
                 "the template is written to stdout."
             ),
             required=False,
             action=PathConverterAction,
+        )
+        parser.add_argument(
+            "-t",
+            "--type",
+            dest="type",
+            help=("The template type to create."),
+            required=True,
+            choices=["blueprint", "workplan"],
         )
         parser.set_defaults(template=action)
         parser.set_defaults(handler=handle)

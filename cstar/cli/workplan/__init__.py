@@ -1,3 +1,4 @@
-from cstar.cli.workplan import check, plan, run, template, workplan
+from cstar.cli.workplan import command
+from cstar.cli.workplan.actions import check, plan, run
 
-__all__ = ["check", "plan", "run", "template", "workplan"]
+__all__ = ["command", "check", "plan", "run"]

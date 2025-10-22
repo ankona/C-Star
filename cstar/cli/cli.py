@@ -21,6 +21,7 @@ def main() -> None:
     args = sys.argv[1:]
 
     import cstar.cli.blueprint  # noqa: F401
+    import cstar.cli.template  # noqa: F401
     import cstar.cli.workplan  # noqa: F401
     from cstar.cli.core import main_parser
 

@@ -13,8 +13,8 @@ def create_command_root() -> RegistryResult:
         """Add a subparser to house actions for the command: `cstar workplan`"""
         parser = sp.add_parser(
             command,
-            help="Create and execute custom workplans",
-            description="Create and execute custom workplans",
+            help="Work with custom workplans",
+            description="Work with custom workplans",
         )
 
         wp_subparsers = parser.add_subparsers(
