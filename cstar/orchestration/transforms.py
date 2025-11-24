@@ -97,41 +97,6 @@ class RomsMarblTimeSplitter(Splitter):
     based on the timespan covered by the simulation.
     """
 
-    def get_time_slices(
-        self, start_date: datetime, end_date: datetime
-    ) -> t.Iterable[tuple[datetime, datetime]]:
-        """Get the time slices for the given start and end dates."""
-        current_date = datetime(start_date.year, start_date.month, 1)
-
-        time_slices = []
-        while current_date < end_date:
-            month_start = current_date
-
-            if month_start.month == 12:
-                month_end = datetime(current_date.year + 1, 1, 1)
-            else:
-                month_end = datetime(
-                    current_date.year,
-                    month_start.month + 1,
-                    1,
-                    hour=0,
-                    minute=0,
-                    second=0,
-                )
-
-            time_slices.append((month_start, month_end))
-            current_date = month_end
-
-        # adjust when the start date is not the first day of the month
-        if start_date > time_slices[0][0]:
-            time_slices[0] = (start_date, time_slices[0][1])
-
-        # adjust when the end date is not the last day of the month
-        if end_date < time_slices[-1][1]:
-            time_slices[-1] = (time_slices[-1][0], end_date)
-
-        return time_slices
-
     def split(self, step: Step) -> t.Iterable[Step]:
         """Split a step into multiple sub-steps.
 
@@ -152,7 +117,7 @@ class RomsMarblTimeSplitter(Splitter):
         if end_date <= start_date:
             raise ValueError("end_date must be after start_date")
 
-        time_slices = self.get_time_slices(start_date, end_date)
+        time_slices = get_time_slices(start_date, end_date)
 
         depends_on = step.depends_on
         for time_slice in time_slices:
