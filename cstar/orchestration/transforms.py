@@ -133,7 +133,6 @@ class RomsMarblTimeSplitter(Splitter):
                     "runtime_params": {
                         "start_date": time_slice[0].strftime("%Y-%m-%d %H:%M:%S"),
                         "end_date": time_slice[1].strftime("%Y-%m-%d %H:%M:%S"),
-                        "checkpoint_frequency": "1m",
                     }
                 },
                 "depends_on": depends_on,
