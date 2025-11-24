@@ -4,8 +4,9 @@ from pathlib import Path
 import networkx as nx
 import pytest
 
+from cstar.orchestration.dag_runner import transform_workplan
 from cstar.orchestration.launch.local import LocalLauncher
-from cstar.orchestration.models import Step, Workplan
+from cstar.orchestration.models import Application, Step, Workplan
 from cstar.orchestration.orchestration import (
     KEY_STATUS,
     KEY_STEP,
@@ -159,3 +160,20 @@ def test_dep_keys(tmp_path: Path) -> None:
         )
 
     assert "unknown dep" in str(ex).lower()
+
+
+def test_workplan_transformation(diamond_workplan: Workplan):
+    """Verify that the workplan transformation applies appropriate transforms."""
+    for step in diamond_workplan.steps:
+        step.application = Application.ROMS.value
+
+    transformed = transform_workplan(diamond_workplan)
+
+    # start/end date cover 12 months. expect 4 steps per month.
+    n_expected_steps = 4 * 12
+    assert len(transformed.steps) == n_expected_steps, (
+        f"Expected {n_expected_steps} steps, got {len(transformed.steps)}"
+    )
+
+    for step in transformed.steps:
+        assert step.blueprint_overrides is not None
