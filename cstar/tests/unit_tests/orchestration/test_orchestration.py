@@ -1,4 +1,5 @@
 import typing as t
+from datetime import datetime
 from pathlib import Path
 
 import networkx as nx
@@ -15,6 +16,7 @@ from cstar.orchestration.orchestration import (
     RunMode,
     Status,
 )
+from cstar.orchestration.transforms import get_time_slices
 
 
 @pytest.fixture
@@ -168,6 +170,8 @@ def test_workplan_transformation(diamond_workplan: Workplan):
         step.application = Application.ROMS.value
 
     transformed = transform_workplan(diamond_workplan)
+    # start & end date in the blueprint.yaml file
+    sd, ed = datetime(2020, 1, 1), datetime(2021, 1, 1)
 
     # start/end date cover 12 months. expect 4 steps per month.
     n_expected_steps = 4 * 12
@@ -177,3 +181,15 @@ def test_workplan_transformation(diamond_workplan: Workplan):
 
     for step in transformed.steps:
         assert step.blueprint_overrides is not None
+        runtime_params = step.blueprint_overrides["runtime_params"]
+
+        assert isinstance(runtime_params, dict)
+        assert "start_date" in runtime_params
+        assert "end_date" in runtime_params
+        assert isinstance(runtime_params["start_date"], str)
+        assert isinstance(runtime_params["end_date"], str)
+
+        step_sd = datetime.strptime(runtime_params["start_date"], "%Y-%m-%d %H:%M:%S")
+        step_ed = datetime.strptime(runtime_params["end_date"], "%Y-%m-%d %H:%M:%S")
+
+        assert ((step_sd, step_ed)) in get_time_slices(sd, ed)
