@@ -129,8 +129,7 @@ async def process_plan(orchestrator: Orchestrator, mode: RunMode) -> None:
 
 
 def transform_workplan(wp: Workplan) -> Workplan:
-    """Transform the workplan into a new workplan with appropriate
-    transforms applied.
+    """Create a new workplan with appropriate transforms applied.
 
     Parameters
     ----------
