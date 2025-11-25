@@ -1,8 +1,11 @@
 import typing as t
 from datetime import datetime
 
+from anyio._core._fileio import Path
+
 from cstar.orchestration.models import RomsMarblBlueprint, Step
 from cstar.orchestration.serialization import deserialize
+from cstar.orchestration.utils import slugify
 
 
 class Splitter(t.Protocol):
@@ -120,29 +123,47 @@ class RomsMarblTimeSplitter(Splitter):
         time_slices = get_time_slices(start_date, end_date)
 
         depends_on = step.depends_on
+        last_output_dir = None
+        output_root = Path(blueprint.runtime_params.output_dir)
+
         for time_slice in time_slices:
             step_name = f"{step.name}_{time_slice[0].strftime('%Y:%m:%d')}-{time_slice[1].strftime('%Y:%m:%d')}"
+            output_dir = (output_root / slugify(step_name)).as_posix()
 
-            # TODO: follow-up with Dafydd/Nora to understand how to pass
-            # input/output files to each new step
-            attributes = step.model_dump()
+            sd_str = time_slice[0].strftime("%Y-%m-%d %H:%M:%S")
+            ed_str = time_slice[1].strftime("%Y-%m-%d %H:%M:%S")
 
             updates = {
                 "name": step_name,
                 "blueprint_overrides": {
                     "runtime_params": {
-                        "start_date": time_slice[0].strftime("%Y-%m-%d %H:%M:%S"),
-                        "end_date": time_slice[1].strftime("%Y-%m-%d %H:%M:%S"),
+                        "start_date": sd_str,
+                        "end_date": ed_str,
+                        "output_dir": output_dir,
                     }
                 },
                 "depends_on": depends_on,
+                "initial_conditions": {},
             }
-            attributes.update(updates)
 
-            yield Step(**attributes)
+            # adjust initial conditions after the first step
+            if last_output_dir is not None:
+                # TODO: confirm location of restart file - this is a guess.
+                prior_output = last_output_dir / "roms.nc"
+
+                updates["initial_conditions"] = {
+                    "location": prior_output,
+                    "start_date": sd_str,  # TODO: is passing start_date necessary?
+                    "end_date": ed_str,  # TODO: is passing end_date necessary?
+                }
+
+            yield Step(**{**step.model_dump(), **updates})
 
             # use dependency on the prior substep to chain all the dynamic steps
             depends_on = [step_name]
+
+            # use output dir of the last step as the input dir for the next step
+            last_output_dir = output_dir
 
 
 register_transform("roms", RomsMarblTimeSplitter())
