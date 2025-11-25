@@ -151,11 +151,7 @@ class RomsMarblTimeSplitter(Splitter):
                 # TODO: confirm location of restart file - this is a guess.
                 prior_output = last_output_dir / "roms.nc"
 
-                updates["initial_conditions"] = {
-                    "location": prior_output,
-                    "start_date": sd_str,  # TODO: is passing start_date necessary?
-                    "end_date": ed_str,  # TODO: is passing end_date necessary?
-                }
+                updates["initial_conditions"] = {"location": prior_output}
 
             yield Step(**{**step.model_dump(), **updates})
 
