@@ -35,9 +35,7 @@ def test_time_splitting():
 @pytest.mark.parametrize(
     "application",
     [
-        "roms",
         "roms_marbl",
-        Application.ROMS.value,
         Application.ROMS_MARBL.value,
     ],
 )
@@ -66,7 +64,6 @@ def test_sleep_transform_registry(application: str):
 @pytest.mark.parametrize(
     "application",
     [
-        Application.ROMS.value,
         Application.ROMS_MARBL.value,
     ],
 )

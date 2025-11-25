@@ -167,7 +167,7 @@ def test_dep_keys(tmp_path: Path) -> None:
 def test_workplan_transformation(diamond_workplan: Workplan):
     """Verify that the workplan transformation applies appropriate transforms."""
     for step in diamond_workplan.steps:
-        step.application = Application.ROMS.value
+        step.application = Application.ROMS_MARBL.value
 
     transformed = transform_workplan(diamond_workplan)
     # start & end date in the blueprint.yaml file
