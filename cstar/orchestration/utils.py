@@ -17,4 +17,5 @@ def slugify(source: str) -> str:
     if not source:
         raise ValueError
 
-    return re.sub(r"\s+", "-", source.casefold())
+    alphanumeric = re.sub(r"\W", "", source.casefold())
+    return re.sub(r"\s+", "-", alphanumeric)
