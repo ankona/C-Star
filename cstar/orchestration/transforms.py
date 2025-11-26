@@ -4,36 +4,90 @@ from datetime import datetime
 from anyio._core._fileio import Path
 from pydantic import HttpUrl
 
-from cstar.orchestration.models import RomsMarblBlueprint, Step
+from cstar.orchestration.models import RomsMarblBlueprint, Step, Workplan
 from cstar.orchestration.serialization import deserialize
 from cstar.orchestration.utils import deep_merge, slugify
 
 JOIN_DIR_NAME: t.Literal["JOINED_OUTPUT"] = "JOINED_OUTPUT"
 
 
-class Splitter(t.Protocol):
-    """Protocol for a class that splits a step into multiple sub-steps."""
-
-    def split(self, step: Step) -> t.Iterable[Step]:
-        """Split a step into multiple sub-steps.
-
-        Parameters
-        ----------
-        step : Step
-            The step to split.
-
-        Returns
-        -------
-        Iterable[Step]
-            The sub-steps.
-        """
-        ...
+class TransformAction(t.Protocol):
+    def __call__(self, workplan: Workplan) -> None: ...
 
 
-TRANSFORMS: dict[str, Splitter] = {}
+class DependencyReplacement(TransformAction):
+    def __init__(self, source: str, target: str) -> None:
+        self.source = source
+        self.target = target
+
+    def __call__(self, workplan: Workplan) -> None:
+        wp = Workplan(**workplan.model_dump())
+
+        targets = [s for s in wp.steps if self.source in s.depends_on]
+
+        for step in targets:
+            step.depends_on.remove(self.source)
+            step.depends_on.append(self.target)
+
+        workplan.steps = targets
 
 
-def register_transform(application: str, transform: Splitter) -> None:
+class StepPruner(TransformAction):
+    def __init__(self, step_name: str) -> None:
+        self.step_name = step_name
+
+    def __call__(self, workplan: Workplan) -> None:
+        wp = Workplan(**workplan.model_dump())
+
+        dependants = [s for s in wp.steps if self.step_name in s.depends_on]
+
+        for step in dependants:
+            step.depends_on.remove(self.step_name)
+
+        wp.prune(self.step_name)
+        wp.extend(dependants)
+
+
+class TransformResult:
+    _side_effects: list[TransformAction]
+    _steps: t.Iterable[Step]
+
+    def __init__(self):
+        self._side_effects = []
+
+    @property
+    def side_effects(self) -> t.Iterable[TransformAction]:
+        return self._side_effects
+
+    @property
+    def steps(self) -> t.Iterable[Step]:
+        return self._steps
+
+
+class SplitTransformResult(TransformResult):
+    def __init__(
+        self,
+        steps: t.Iterable[Step],
+        dependencies: list[tuple[str, str]],
+        source: str,
+    ) -> None:
+        self._steps = steps
+        self._side_effects = [
+            DependencyReplacement(source, target) for source, target in dependencies
+        ]
+        self._side_effects.append(StepPruner(source))
+
+
+class StepTransform(t.Protocol):
+    """Protocol for a class that transforms a step."""
+
+    def __call__(self, step: Step) -> TransformResult: ...
+
+
+TRANSFORMS: dict[str, StepTransform] = {}
+
+
+def register_transform(application: str, transform: StepTransform) -> None:
     """Register a splitter for an application.
 
     Parameters
@@ -46,7 +100,7 @@ def register_transform(application: str, transform: Splitter) -> None:
     TRANSFORMS[application] = transform
 
 
-def get_transform(application: str) -> Splitter | None:
+def get_transform(application: str) -> StepTransform | None:
     """Retrieve a transform for an application.
 
     Parameters
@@ -111,7 +165,7 @@ def get_time_slices(
     return time_slices
 
 
-class RomsMarblTimeSplitter(Splitter):
+class RomsMarblTimeSplitter(StepTransform):
     """A splitter used to split a step into multiple sub-steps
     based on the timespan covered by the simulation.
     """
@@ -252,6 +306,15 @@ class RomsMarblTimeSplitter(Splitter):
 
             # use output dir of the last step as the input for the next step
             last_output_path = slice_output_path
+
+    def __call__(self, step: Step) -> SplitTransformResult:
+        steps = list(self.split(step))
+
+        return SplitTransformResult(
+            steps,
+            [(step.name, steps[-1].name)],
+            step.name,
+        )
 
 
 register_transform("roms_marbl", RomsMarblTimeSplitter())

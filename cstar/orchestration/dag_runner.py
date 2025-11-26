@@ -148,13 +148,13 @@ def transform_workplan(wp: Workplan) -> Workplan:
             steps.append(step)
             continue
 
-        transformed = list(transform.split(step))
-        steps.extend(transformed)
+        result = transform(step)
 
-        tweaks = [s for s in wp.steps if step.name in s.depends_on]
-        for tweak in tweaks:
-            tweak.depends_on.remove(step.name)
-            tweak.depends_on.append(transformed[-1].name)
+        # place the transformed step(s) into the working list
+        steps.extend(result.steps)
+
+        for action_fn in result.side_effects:
+            action_fn(wp)
 
     wp_attrs = wp.model_dump()
     wp_attrs.update({"steps": steps})
