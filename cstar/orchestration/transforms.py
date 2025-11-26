@@ -162,5 +162,4 @@ class RomsMarblTimeSplitter(Splitter):
             last_output_dir = output_dir
 
 
-register_transform("roms", RomsMarblTimeSplitter())
 register_transform("roms_marbl", RomsMarblTimeSplitter())
