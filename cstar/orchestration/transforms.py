@@ -2,10 +2,13 @@ import typing as t
 from datetime import datetime
 
 from anyio._core._fileio import Path
+from pydantic import HttpUrl
 
 from cstar.orchestration.models import RomsMarblBlueprint, Step
 from cstar.orchestration.serialization import deserialize
 from cstar.orchestration.utils import slugify
+
+JOIN_DIR_NAME: t.Literal["JOINED_OUTPUT"] = "JOINED_OUTPUT"
 
 
 class Splitter(t.Protocol):
@@ -62,7 +65,20 @@ def get_transform(application: str) -> Splitter | None:
 def get_time_slices(
     start_date: datetime, end_date: datetime
 ) -> t.Iterable[tuple[datetime, datetime]]:
-    """Get the time slices for the given start and end dates."""
+    """Get the time slices for the given start and end dates.
+
+    Parameters
+    ----------
+    start_date : datetime
+        The start date.
+    end_date : datetime
+        The end date.
+
+    Returns
+    -------
+    Iterable[tuple[datetime, datetime]]
+        The time slices.
+    """
     current_date = datetime(start_date.year, start_date.month, 1)
 
     time_slices = []
@@ -95,10 +111,117 @@ def get_time_slices(
     return time_slices
 
 
+def deep_merge(d1: dict[str, t.Any], d2: dict[str, t.Any]) -> dict[str, t.Any]:
+    """Deep merge two dictionaries.
+
+    Parameters
+    ----------
+    d1 : dict[str, t.Any]
+        The first dictionary.
+    d2 : dict[str, t.Any]
+        The second dictionary.
+
+    Returns
+    -------
+    dict[str, t.Any]
+        The merged dictionaries.
+    """
+    for k, v in d2.items():
+        if isinstance(v, dict):
+            d1[k] = deep_merge(d1.get(k, {}), v)
+        else:
+            d1[k] = v
+    return d1
+
+
 class RomsMarblTimeSplitter(Splitter):
     """A splitter used to split a step into multiple sub-steps
     based on the timespan covered by the simulation.
     """
+
+    def _get_location_stem(self, blueprint: RomsMarblBlueprint) -> str:
+        """Identify the stem of the initial conditions file.
+
+        Parameters
+        ----------
+        blueprint : RomsMarblBlueprint
+            The blueprint to extract initial conditions from.
+
+        Returns
+        -------
+        str
+            The stem of the initial conditions file.
+        """
+        location = blueprint.initial_conditions.data[0].location
+
+        if isinstance(location, HttpUrl):
+            location = Path(location.path)
+
+        return location.stem
+
+    def _get_default_overrides(
+        self,
+        step_name: str,
+        sd: datetime,
+        ed: datetime,
+        step_output_dir: Path,
+        depends_on: list[str],
+    ) -> dict[str, t.Any]:
+        """Create a dictionary that will override the blueprint runtime parameters
+        of a step.
+
+        Parameters
+        ----------
+        step_name : str
+            The name of the step.
+        sd : datetime
+            The start date.
+        ed : datetime
+            The end date.
+        step_output_dir : Path
+            The output directory of the step.
+        depends_on : list[str]
+            The dependencies of the step.
+
+        Returns
+        -------
+        dict[str, t.Any]
+            The overrides.
+        """
+        return {
+            "name": step_name,
+            "blueprint_overrides": {
+                "runtime_params": {
+                    "start_date": sd.strftime("%Y-%m-%d %H:%M:%S"),
+                    "end_date": ed.strftime("%Y-%m-%d %H:%M:%S"),
+                    "output_dir": step_output_dir.as_posix(),
+                }
+            },
+            "depends_on": depends_on,
+        }
+
+    def _get_ic_overrides(self, last_output_path: Path) -> dict[str, t.Any]:
+        """Create a dictionary that will override the initial conditions of a step.
+
+        Parameters
+        ----------
+        last_output_path : Path
+            The path to the last output file.
+
+        Returns
+        -------
+        dict[str, t.Any]
+            The overrides.
+        """
+        return {
+            "blueprint_overrides": {
+                "runtime_params": {
+                    "initial_conditions": {
+                        "location": last_output_path.as_posix(),
+                    }
+                }
+            }
+        }
 
     def split(self, step: Step) -> t.Iterable[Step]:
         """Split a step into multiple sub-steps.
@@ -116,50 +239,42 @@ class RomsMarblTimeSplitter(Splitter):
         blueprint = deserialize(step.blueprint, RomsMarblBlueprint)
         start_date = blueprint.runtime_params.start_date
         end_date = blueprint.runtime_params.end_date
+        ic_stem = self._get_location_stem(blueprint)
+        output_root = Path(blueprint.runtime_params.output_dir)
+        time_slices = get_time_slices(start_date, end_date)
 
         if end_date <= start_date:
             raise ValueError("end_date must be after start_date")
 
-        time_slices = get_time_slices(start_date, end_date)
-
         depends_on = step.depends_on
-        last_output_dir = None
-        output_root = Path(blueprint.runtime_params.output_dir)
+        last_output_path: Path | None = None
 
-        for time_slice in time_slices:
-            step_name = f"{step.name}_{time_slice[0].strftime('%Y:%m:%d')}-{time_slice[1].strftime('%Y:%m:%d')}"
-            output_dir = (output_root / slugify(step_name)).as_posix()
+        for sd, ed in time_slices:
+            compact_sd = sd.strftime("%Y%m%d%H%M%S")
+            compact_ed = ed.strftime("%Y%m%d%H%M%S")
 
-            sd_str = time_slice[0].strftime("%Y-%m-%d %H:%M:%S")
-            ed_str = time_slice[1].strftime("%Y-%m-%d %H:%M:%S")
+            step_name = f"{slugify(step.name)}_{compact_sd}_{compact_ed}"
+            step_output_dir = output_root / step_name
+            join_output_dir = step_output_dir / JOIN_DIR_NAME
 
-            updates = {
-                "name": step_name,
-                "blueprint_overrides": {
-                    "runtime_params": {
-                        "start_date": sd_str,
-                        "end_date": ed_str,
-                        "output_dir": output_dir,
-                    }
-                },
-                "depends_on": depends_on,
-                "initial_conditions": {},
-            }
+            # output of each step is formatted as: <stem>.YYYYMMDDHHMMSS.nc
+            slice_output_path = join_output_dir / f"{ic_stem}.{compact_sd}.nc"
+
+            updates = self._get_default_overrides(
+                step_name, sd, ed, step_output_dir, depends_on
+            )
 
             # adjust initial conditions after the first step
-            if last_output_dir is not None:
-                # TODO: confirm location of restart file - this is a guess.
-                prior_output = last_output_dir / "roms.nc"
-
-                updates["initial_conditions"] = {"location": prior_output}
+            if last_output_path is not None:
+                updates = deep_merge(updates, self._get_ic_overrides(last_output_path))
 
             yield Step(**{**step.model_dump(), **updates})
 
             # use dependency on the prior substep to chain all the dynamic steps
             depends_on = [step_name]
 
-            # use output dir of the last step as the input dir for the next step
-            last_output_dir = output_dir
+            # use output dir of the last step as the input for the next step
+            last_output_path = slice_output_path
 
 
 register_transform("roms_marbl", RomsMarblTimeSplitter())

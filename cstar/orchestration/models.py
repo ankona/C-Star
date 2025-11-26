@@ -30,7 +30,11 @@ RequiredString: t.TypeAlias = t.Annotated[
 
 KeyValueStore: t.TypeAlias = dict[
     str,
-    str | float | list[str] | list[float] | dict[str, str | float | list[str]],
+    str
+    | float
+    | list[str]
+    | list[float]
+    | dict[str, str | float | list[str] | dict[str, str]],
 ]
 """A collection of user-defined key-value pairs."""
 
