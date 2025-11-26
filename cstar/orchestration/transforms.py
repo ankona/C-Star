@@ -1,14 +1,12 @@
 import typing as t
 from datetime import datetime
+from pathlib import Path
 
-from anyio._core._fileio import Path
 from pydantic import HttpUrl
 
 from cstar.orchestration.models import RomsMarblBlueprint, Step
 from cstar.orchestration.serialization import deserialize
 from cstar.orchestration.utils import deep_merge, slugify
-
-JOIN_DIR_NAME: t.Literal["JOINED_OUTPUT"] = "JOINED_OUTPUT"
 
 
 class Splitter(t.Protocol):
@@ -132,6 +130,8 @@ class RomsMarblTimeSplitter(Splitter):
         location = blueprint.initial_conditions.data[0].location
 
         if isinstance(location, HttpUrl):
+            if location.path is None:
+                raise RuntimeError("Initial conditions location is not a valid path")
             location = Path(location.path)
 
         return location.stem
@@ -224,7 +224,7 @@ class RomsMarblTimeSplitter(Splitter):
             raise ValueError("end_date must be after start_date")
 
         depends_on = step.depends_on
-        last_output_path: Path | None = None
+        last_restart_file: Path | None = None
 
         for sd, ed in time_slices:
             compact_sd = sd.strftime("%Y%m%d%H%M%S")
@@ -232,18 +232,21 @@ class RomsMarblTimeSplitter(Splitter):
 
             step_name = f"{slugify(step.name)}_{compact_sd}_{compact_ed}"
             step_output_dir = output_root / step_name
-            join_output_dir = step_output_dir / JOIN_DIR_NAME
 
-            # output of each step is formatted as: <stem>.YYYYMMDDHHMMSS.nc
-            slice_output_path = join_output_dir / f"{ic_stem}.{compact_sd}.nc"
+            # reset file names are formatted as: <stem>_rst.YYYYMMDDHHMMSS.{partition}.nc
+            restart_file = step_output_dir / f"{ic_stem}_rst.{compact_sd}.*.nc"
+
+            # restart_files = list(step_output_dir.glob(".*_rst.??????????????.*.nc"))
+            # restart_files.sort(reverse=True)
+            # last_restart_file = restart_files[0] if restart_files else "not-found"
 
             updates = self._get_default_overrides(
                 step_name, sd, ed, step_output_dir, depends_on
             )
 
             # adjust initial conditions after the first step
-            if last_output_path is not None:
-                updates = deep_merge(updates, self._get_ic_overrides(last_output_path))
+            if last_restart_file is not None:
+                updates = deep_merge(updates, self._get_ic_overrides(last_restart_file))
 
             yield Step(**{**step.model_dump(), **updates})
 
@@ -251,7 +254,7 @@ class RomsMarblTimeSplitter(Splitter):
             depends_on = [step_name]
 
             # use output dir of the last step as the input for the next step
-            last_output_path = slice_output_path
+            last_restart_file = restart_file
 
 
 register_transform("roms_marbl", RomsMarblTimeSplitter())
