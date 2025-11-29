@@ -1,5 +1,4 @@
 import typing as t
-import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -77,7 +76,7 @@ def test_roms_marbl_transform_registry(application: str):
 
 @pytest.mark.parametrize(
     "application",
-    ["sleep", Application.SLEEP.value, f"unknown-{uuid.uuid4()}"],
+    ["sleep", Application.SLEEP.value, "unknown-app-id"],
 )
 def test_sleep_transform_registry(application: str):
     """Verify that the transform registry returns no transforms for sleep or unknown applications.
