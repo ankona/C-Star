@@ -581,3 +581,13 @@ class Workplan(BaseModel):
     def _model_validator(self) -> "Workplan":
         """Validate attribute relationships."""
         return self
+
+    def prune(self, step_name: str) -> "Workplan":
+        """Remove a step from the workplan."""
+        self.steps = [s for s in self.steps if s.name != step_name]
+        return self
+
+    def extend(self, other: t.Iterable[Step]) -> "Workplan":
+        """Add steps from another workplan to this one."""
+        self.steps = [*list(self.steps), *other]
+        return self
