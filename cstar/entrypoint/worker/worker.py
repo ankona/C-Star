@@ -225,6 +225,8 @@ class SimulationRunner(Service):
             msg = "No blueprint URI provided"
             raise BlueprintError(msg)
 
+        await self._load_simulation()
+
         if self._simulation is None:
             msg = f"Unable to load the blueprint: {self._blueprint_uri}"
             raise BlueprintError(msg)
