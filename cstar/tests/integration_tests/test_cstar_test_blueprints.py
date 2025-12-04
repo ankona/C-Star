@@ -17,7 +17,8 @@ class TestCStar:
             "test_case_local_with_netcdf_datasets",
         ],
     )
-    def test_cstar(
+    @pytest.mark.asyncio
+    async def test_cstar(
         self,
         tmp_path: Path,
         modify_template_blueprint,
@@ -74,11 +75,11 @@ class TestCStar:
                 strs_to_replace=strs_to_replace,
                 out_dir=tmp_path / "cstar_test_simulation",
             )
-            cstar_test_case = ROMSSimulation.from_blueprint(
+            cstar_test_case = await ROMSSimulation.from_blueprint(
                 modified_blueprint,
             )
 
-            cstar_test_case.setup()
+            await cstar_test_case.setup()
 
             cstar_test_case.build()
             cstar_test_case.pre_run()

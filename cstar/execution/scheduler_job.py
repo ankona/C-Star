@@ -276,13 +276,14 @@ class SchedulerJob(ExecutionHandler, ABC):
             f"cstar_job_{datetime.strftime(datetime.now(), '%Y%m%d_%H%M%S')}"
         )
 
+        self._job_name = self._default_name if job_name is None else job_name
+
         self.script_path = (
             Path.cwd() / f"{self._default_name}.sh"
             if script_path is None
             else Path(script_path)
         )
         self.run_path = self.script_path.parent if run_path is None else Path(run_path)
-        self._job_name = self._default_name if job_name is None else job_name
         self._output_file = (
             Path(output_file) if output_file is not None else output_file
         )

@@ -150,7 +150,7 @@ class InputDataset(ABC, LoggingMixin):
 
         return input_dataset_dict
 
-    def get(self, local_dir: str | Path) -> None:
+    async def get(self, local_dir: str | Path) -> None:
         """Make this InputDataset locally available in `local_dir`.
 
         This method updates the `InputDataset.working_copy` attribute,
@@ -165,7 +165,7 @@ class InputDataset(ABC, LoggingMixin):
         if self.exists_locally:
             self.log.info(f"⏭️ {target_path} already exists, skipping.")
             return
-        staged = self.source.stage(target_dir=local_dir)
+        staged = await self.source.stage(target_dir=local_dir)
         assert isinstance(staged, StagedFile) or isinstance(
             staged, StagedDataCollection
         )

@@ -171,7 +171,7 @@ class Service(ABC, LoggingMixin):
         """
         return self._hc_queue is not None
 
-    def _on_start(self) -> None:
+    async def _on_start(self) -> None:
         """Empty hook method for use by subclasses.
 
         Called on initial entry into Service lifecycle before the main service logic
@@ -391,7 +391,7 @@ class Service(ABC, LoggingMixin):
         """
         try:
             running = True
-            self._on_start()
+            await self._on_start()
             self._start_healthcheck()
         except Exception:
             self.log.exception("Unable to start service.")

@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 from abc import ABC, abstractmethod
@@ -67,7 +68,7 @@ class StagedData(ABC):
         """Remove staged local filesystem version of this data"""
 
     @abstractmethod
-    def reset(self) -> None:
+    async def reset(self) -> None:
         """Revert to original staged state if changed_from_source."""
 
 
@@ -155,14 +156,14 @@ class StagedFile(StagedData):
         self.path.unlink(missing_ok=True)
         self._clear_cache()
 
-    def reset(self) -> None:
+    async def reset(self) -> None:
         """Revert to original staged state if changed_from_source."""
         if not self.changed_from_source:
             pass
         else:
             self.unstage()
             self._clear_cache()
-            self.source.stage(target_dir=self.path)
+            await self.source.stage(target_dir=self.path)
 
 
 class StagedRepository(StagedData):
@@ -214,10 +215,10 @@ class StagedRepository(StagedData):
         """Remove the local clone of this repository from StagedRepository.path"""
         shutil.rmtree(self.path)
 
-    def reset(self):
+    async def reset(self):
         """Hard reset back to original checkout target."""
         if not self.path.exists():
-            self.source.stage(target_dir=self.path)
+            await self.source.stage(target_dir=self.path)
         else:
             _run_cmd(
                 cmd=f"git reset --hard {self.source.checkout_target}",
@@ -282,10 +283,12 @@ class StagedDataCollection:
         """True if any item's  StagedData.changed_from_source is True."""
         return any(s.changed_from_source for s in self._items)
 
-    def reset(self) -> None:
+    async def reset(self) -> None:
         """Resets each StagedData item in the collection"""
+        resets = []
         for s in self._items:
-            s.reset()
+            resets.append(s.reset())
+        asyncio.gather(*resets)
 
     def unstage(self) -> None:
         """Unstages each StagedData item in the collection"""

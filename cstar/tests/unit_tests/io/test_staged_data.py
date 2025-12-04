@@ -21,12 +21,13 @@ class TestStagedFile:
         assert sf._stat is None
         assert sf._sha256 is None
 
-    def test_reset_calls_stage_if_changed(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_reset_calls_stage_if_changed(self, tmp_path):
         """Tests that StagedFile.reset() unstages/re-stages if the file has changed"""
         testfile = tmp_path / "f.txt"
         testfile.write_text("hello")
 
-        fake_source = mock.Mock()
+        fake_source = mock.AsyncMock()
         sf = staged_data.StagedFile(source=fake_source, path=testfile)
         # Force changed state
         with (
@@ -38,7 +39,7 @@ class TestStagedFile:
             ),
             mock.patch.object(staged_data.StagedFile, "unstage") as mock_unstage,
         ):
-            sf.reset()
+            await sf.reset()
             mock_unstage.assert_called()
         fake_source.stage.assert_called_once_with(target_dir=testfile)
 
@@ -147,11 +148,12 @@ class TestStagedRepository:
         sr.unstage()
         assert not repo_path.exists()
 
-    def test_reset_clones_if_missing_else_hard_reset(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_reset_clones_if_missing_else_hard_reset(self, tmp_path):
         """Tests that `reset` either clones (if the repo is missing) or hard resets to checkout_target."""
         repo_path = tmp_path / "repo"
         repo_path.mkdir()
-        fake_source = mock.Mock(
+        fake_source = mock.AsyncMock(
             location="http://example.com/repo.git", checkout_target="deadtofu"
         )
 
@@ -159,7 +161,7 @@ class TestStagedRepository:
             "cstar.io.staged_data._run_cmd", return_value="hash"
         ) as mock_run:
             sr = staged_data.StagedRepository(source=fake_source, path=repo_path)
-            sr.reset()
+            await sr.reset()
         mock_run.assert_called_with(
             cmd="git reset --hard deadtofu", cwd=repo_path, raise_on_error=True
         )
@@ -167,7 +169,7 @@ class TestStagedRepository:
         # Case: path missing -> source.stage called
         shutil.rmtree(repo_path)
         fake_source.stage.reset_mock()
-        sr.reset()
+        await sr.reset()
         fake_source.stage.assert_called_once_with(target_dir=repo_path)
 
 
@@ -193,7 +195,8 @@ class TestStagedDataCollection:
         with pytest.raises(TypeError):
             coll.append("not staged data")
 
-    def test_changed_from_source_and_reset_unstage(self, tmp_path):
+    @pytest.mark.asyncio
+    async def test_changed_from_source_and_reset_unstage(self, tmp_path):
         """Tests that shared methods with StagedData call the child items' methods."""
         testfile = tmp_path / "f.txt"
         testfile.write_text("abc")
@@ -211,7 +214,7 @@ class TestStagedDataCollection:
             mock.patch.object(s1, "unstage") as mock_unstage,
         ):
             assert coll.changed_from_source is True
-            coll.reset()
+            await coll.reset()
             coll.unstage()
         mock_reset.assert_called_once()
         mock_unstage.assert_called_once()

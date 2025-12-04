@@ -114,7 +114,7 @@ class AdditionalCode(LoggingMixin):
             return True
         return False
 
-    def get(self, local_dir: str | Path) -> None:
+    async def get(self, local_dir: str | Path) -> None:
         """Stage the AdditionalCode files to `local_dir`
 
         Parameters:
@@ -122,7 +122,7 @@ class AdditionalCode(LoggingMixin):
         local_dir: str | Path
             The local directory to stage the AdditionalCode in
         """
-        self._working_copy = self.source.stage(local_dir)
+        self._working_copy = await self.source.stage(local_dir)
 
     def to_dict(self) -> dict:
         return self._constructor_args

@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Iterable, Iterator, Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -292,9 +293,9 @@ class SourceData:
             self._retriever = get_retriever(self)
         return self._retriever
 
-    def stage(self, target_dir: str | Path) -> "StagedData":
+    async def stage(self, target_dir: str | Path) -> "StagedData":
         """Stages the data, making it available to C-Star"""
-        return self.stager.stage(target_dir=Path(target_dir))
+        return await self.stager.stage(target_dir=Path(target_dir))
 
 
 class SourceDataCollection:
@@ -393,10 +394,13 @@ class SourceDataCollection:
         """Returns the list of SourceData instances associated with this SourceDataCollection"""
         return self._sources
 
-    def stage(self, target_dir: str | Path) -> StagedDataCollection:
+    async def stage(self, target_dir: str | Path) -> StagedDataCollection:
         """Stages each SourceData instance in this collection"""
-        staged_data_instances = []
+        # staged_data_instances = []
+        stages = []
         for s in self.sources:
             staged_data = s.stage(target_dir=target_dir)
-            staged_data_instances.append(staged_data)
+            stages.append(staged_data)
+            # staged_data_instances.append(staged_data)
+        staged_data_instances = await asyncio.gather(*stages)
         return StagedDataCollection(items=staged_data_instances)

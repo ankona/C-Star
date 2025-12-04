@@ -52,8 +52,8 @@ class PrintingService(Service):
         """Return the number of iterations executed."""
         return self.metrics["_on_iteration"]
 
-    def _on_start(self) -> None:
-        super()._on_start()
+    async def _on_start(self) -> None:
+        await super()._on_start()
         self.log.debug("Running PrintingService._on_start")
         self.start_time = time.time()
 

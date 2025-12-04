@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import shutil
 from abc import ABC, abstractmethod
@@ -61,11 +62,11 @@ class Retriever(ABC):
         self.source = source
 
     @abstractmethod
-    def read(self) -> bytes:
+    async def read(self) -> bytes:
         """Retrieve data to memory, if supported"""
         pass
 
-    def save(self, target_dir: Path) -> Path:
+    async def save(self, target_dir: Path) -> Path:
         """
         Save this object to the given directory.
 
@@ -80,11 +81,11 @@ class Retriever(ABC):
         else:
             target_dir.mkdir(parents=True)
 
-        savepath = self._save(target_dir=target_dir)
+        savepath = await self._save(target_dir=target_dir)
         return savepath
 
     @abstractmethod
-    def _save(self, target_dir: Path) -> Path:
+    async def _save(self, target_dir: Path) -> Path:
         """Retrieve data to a local path"""
         pass
 
@@ -92,16 +93,18 @@ class Retriever(ABC):
 class RemoteFileRetriever(Retriever, ABC):
     """Retriever subclass for retrieving remote files."""
 
-    def read(self) -> bytes:
+    async def read(self) -> bytes:
         """Reads this remote file's contents into memory using `requests`"""
-        response = requests.get(self.source.location, allow_redirects=True)
+        response = await asyncio.to_thread(
+            requests.get, self.source.location, allow_redirects=True
+        )
         response.raise_for_status()
         data = response.content
 
         return data
 
     @abstractmethod
-    def _save(self, target_dir: Path) -> Path:
+    async def _save(self, target_dir: Path) -> Path:
         pass
 
 
@@ -111,7 +114,7 @@ class RemoteBinaryFileRetriever(RemoteFileRetriever):
 
     _classification = SourceClassification.REMOTE_BINARY_FILE
 
-    def _save(self, target_dir: Path) -> Path:
+    async def _save(self, target_dir: Path) -> Path:
         """Saves this remote file's contents to `target_dir`.
 
         If the file's SourceData specifies a checksum as its `identifier`,
@@ -138,13 +141,16 @@ class RemoteBinaryFileRetriever(RemoteFileRetriever):
         target_dir.mkdir(parents=True, exist_ok=True)
         target_path = target_dir / self.source.basename
 
-        with requests.get(self.source.location, stream=True, allow_redirects=True) as r:
-            r.raise_for_status()
-            with open(target_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):  # Download in 8kB chunks
-                    if chunk:
-                        f.write(chunk)
-                        hash_obj.update(chunk)
+        r = await asyncio.to_thread(
+            requests.get, self.source.location, stream=True, allow_redirects=True
+        )
+        # with requests.get(self.source.location, stream=True, allow_redirects=True) as r:
+        r.raise_for_status()
+        with open(target_path, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):  # Download in 8kB chunks
+                if chunk:
+                    f.write(chunk)
+                    hash_obj.update(chunk)
 
         # Hash verification if specified in "SourceData":
         if self.source.identifier:
@@ -167,7 +173,7 @@ class RemoteTextFileRetriever(RemoteFileRetriever):
 
     _classification = SourceClassification.REMOTE_TEXT_FILE
 
-    def _save(self, target_dir: Path) -> Path:
+    async def _save(self, target_dir: Path) -> Path:
         """Save this text file to `target_dir`.
 
         Parameters
@@ -180,7 +186,7 @@ class RemoteTextFileRetriever(RemoteFileRetriever):
         pathlib.Path:
             The path of the saved file
         """
-        data = self.read()
+        data = await self.read()
         target_path = target_dir / self.source.basename
         with open(target_path, "wb") as f:
             f.write(data)
@@ -190,7 +196,7 @@ class RemoteTextFileRetriever(RemoteFileRetriever):
 class LocalFileRetriever(Retriever):
     """Retriever subclass for retrieving local files."""
 
-    def read(self) -> bytes:
+    async def read(self) -> bytes:
         """Read this file's contents into memory
 
         Returns
@@ -199,9 +205,9 @@ class LocalFileRetriever(Retriever):
            raw bytes from the read
         """
         with open(self.source.location, "rb") as f:
-            return f.read()
+            return await asyncio.to_thread(f.read)
 
-    def _save(self, target_dir: Path) -> Path:
+    async def _save(self, target_dir: Path) -> Path:
         """Save this file to `target_dir`
 
         Parameters
@@ -215,7 +221,9 @@ class LocalFileRetriever(Retriever):
             The path of the saved file
         """
         target_path = target_dir / self.source.basename
-        shutil.copy2(src=Path(self.source.location).resolve(), dst=target_path)
+        await asyncio.to_thread(
+            shutil.copy2, src=Path(self.source.location).resolve(), dst=target_path
+        )
         return target_path
 
 
@@ -239,7 +247,7 @@ class RemoteRepositoryRetriever(Retriever):
 
     _classification = SourceClassification.REMOTE_REPOSITORY
 
-    def read(self) -> bytes:
+    async def read(self) -> bytes:
         """Unsupported method.
 
         Raises
@@ -249,7 +257,7 @@ class RemoteRepositoryRetriever(Retriever):
         """
         raise NotImplementedError("Cannot 'read' a remote repository to memory")
 
-    def _save(self, target_dir: Path) -> Path:
+    async def _save(self, target_dir: Path) -> Path:
         """Clone this repository to `target_dir`
 
         Parameters
@@ -270,12 +278,14 @@ class RemoteRepositoryRetriever(Retriever):
         if any(target_dir.iterdir()):
             raise ValueError(f"cannot clone repository to {target_dir} - dir not empty")
 
-        _clone(
+        await asyncio.to_thread(
+            _clone,
             source_repo=self.source.location,
             local_path=target_dir,
         )
         if self.source.checkout_target:
-            _checkout(
+            await asyncio.to_thread(
+                _checkout,
                 source_repo=self.source.location,
                 local_path=target_dir,
                 checkout_target=self.source.checkout_target,

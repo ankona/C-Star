@@ -60,22 +60,22 @@ class MockStager(Stager):
     """
 
     @property
-    def retriever(self):
+    def retriever(self) -> Retriever:
         if not hasattr(self, "_retriever"):
             self._retriever = mock.Mock(spec=Retriever)
         return self._retriever
 
-    def stage(self, target_dir: Path):
+    async def stage(self, target_dir):
         return MockStagedData(
             source=self.source, path=target_dir / self.source.basename
         )
 
 
 class MockRetriever(Retriever):
-    def read(self, bytes_to_have_read: bytes = b"fake_bytes") -> bytes:
+    async def read(self, bytes_to_have_read: bytes = b"fake_bytes") -> bytes:
         return bytes_to_have_read
 
-    def _save(self, path_to_have_saved_to) -> Path:
+    async def _save(self, path_to_have_saved_to: Path) -> Path:
         return path_to_have_saved_to
 
 
@@ -99,7 +99,7 @@ class MockStagedData(StagedData):
     def unstage(self):
         pass
 
-    def reset(self):
+    async def reset(self):
         pass
 
 
@@ -582,21 +582,19 @@ def fakeexternalcodebase_with_mock_get(
     """Pytest fixutre that provides an instance of the MockExternalCodeBase class
     with a mocked SourceData instance.
     """
+    mecb = FakeExternalCodeBase()
     source = mocksourcedata_remote_repo()
-    patch_source_data = mock.patch(
-        "cstar.base.external_codebase.SourceData", return_value=source
+
+    async_mock = mock.AsyncMock(
+        side_effect=lambda target_dir: print(
+            f"mock installing ExternalCodeBase at {target_dir}"
+        )
     )
 
-    def mock_get(target_dir: Path | None = None) -> None:
-        print(f"mock installing ExternalCodeBase at {target_dir}")
-
-    patch_get = mock.patch(
-        "cstar.base.external_codebase.ExternalCodeBase.get", mock_get
-    )
-
-    with patch_source_data, patch_get:
-        mecb = FakeExternalCodeBase()
-        mecb._source = source
+    with (
+        mock.patch.object(mecb, "get", async_mock),
+        mock.patch.object(mecb, "_source", source),
+    ):
         yield mecb
 
 

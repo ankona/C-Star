@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -12,7 +12,7 @@ def skip_html_checks_for_performance():
 
     This is purely to speed up tests.
     """
-    fake_response = Mock()
+    fake_response = AsyncMock()
     fake_response.headers = {"Content-Type": "application/octet-stream"}
     with patch("cstar.io.source_data.requests.head", return_value=fake_response):
         yield

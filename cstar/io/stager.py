@@ -63,9 +63,9 @@ class Stager(ABC):
     def __init__(self, source: "SourceData"):
         self.source = source
 
-    def stage(self, target_dir: "Path") -> StagedFile | StagedRepository:
+    async def stage(self, target_dir: "Path") -> StagedFile | StagedRepository:
         """Stage this data using an appropriate strategy."""
-        retrieved_path = self.source.retriever.save(target_dir=target_dir)
+        retrieved_path = await self.source.retriever.save(target_dir=target_dir)
         return StagedFile(
             source=self.source,
             path=retrieved_path,
@@ -89,7 +89,7 @@ class LocalBinaryFileStager(Stager):
     _classification = SourceClassification.LOCAL_BINARY_FILE
 
     # Used for e.g. a local netCDF InputDataset
-    def stage(self, target_dir: "Path") -> "StagedFile":
+    async def stage(self, target_dir: "Path") -> "StagedFile":
         """Create a local symlink to a binary file on the current filesystem.
 
         Parameters
@@ -115,7 +115,7 @@ class RemoteRepositoryStager(Stager):
     _classification = SourceClassification.REMOTE_REPOSITORY
 
     # Used for e.g. an ExternalCodeBase
-    def stage(self, target_dir: "Path") -> "StagedRepository":
+    async def stage(self, target_dir: "Path") -> "StagedRepository":
         """Clone and checkout a git repository at a given target.
 
         Parameters
@@ -123,5 +123,5 @@ class RemoteRepositoryStager(Stager):
         target_dir, Path:
             The local directory in which to stage the repository
         """
-        retrieved_path = self.source.retriever.save(target_dir=target_dir)
+        retrieved_path = await self.source.retriever.save(target_dir=target_dir)
         return StagedRepository(source=self.source, path=retrieved_path)

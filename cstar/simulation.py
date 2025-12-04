@@ -427,7 +427,7 @@ class Simulation(ABC, LoggingMixin):
 
     @classmethod
     @abstractmethod
-    def from_blueprint(
+    async def from_blueprint(
         cls,
         blueprint: str,
     ) -> "Simulation":
@@ -455,7 +455,7 @@ class Simulation(ABC, LoggingMixin):
         pass
 
     @abstractmethod
-    def setup(self) -> None:
+    async def setup(self) -> None:
         """Abstract method to set up the Simulation.
 
         This method should be implemented in subclasses to handle tasks such as

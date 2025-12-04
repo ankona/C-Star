@@ -1,6 +1,8 @@
 from textwrap import dedent
 from unittest import mock
 
+import pytest
+
 import cstar
 from cstar.base import AdditionalCode
 from cstar.io.constants import SourceClassification
@@ -154,7 +156,8 @@ class TestExistsLocallyAndGet:
         ):
             assert not additionalcode_remote().exists_locally
 
-    def test_get(self, additionalcode_remote, stageddatacollection_remote_files):
+    @pytest.mark.asyncio
+    async def test_get(self, additionalcode_remote, stageddatacollection_remote_files):
         """Tests that the `get` method correctly calls `stage` and sets `working_copy`"""
         ac = additionalcode_remote()
         staged = stageddatacollection_remote_files()
@@ -162,6 +165,6 @@ class TestExistsLocallyAndGet:
         with mock.patch.object(
             SourceDataCollection, "stage", return_value=staged
         ) as mock_stage:
-            ac.get("/some/local/dir")
+            await ac.get("/some/local/dir")
             mock_stage.assert_called_once()
             assert ac.working_copy == staged

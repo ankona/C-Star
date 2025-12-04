@@ -75,15 +75,15 @@ class SimulationRunner(Service):
 
     _blueprint_uri: Final[str]
     """The URI of the blueprint to run."""
-    _output_root: Final[pathlib.Path]
+    _output_root: pathlib.Path
     """The root directory where simulation outputs will be written."""
-    _output_dir: Final[pathlib.Path]
+    _output_dir: pathlib.Path | None = None
     """A unique directory for this simulation run to write outputs."""
-    _simulation: Final[ROMSSimulation]
+    _simulation: ROMSSimulation | None = None
     """The simulation instance created from the blueprint."""
     _stages: Final[tuple[SimulationStages, ...]]
     """The simulation stages that should be executed."""
-    _handler: ExecutionHandler | None
+    _handler: ExecutionHandler | None = None
     """The execution handler for the simulation."""
     _job_config: Final[JobConfig]
     """Configuration for submitting jobs to an HPC."""
@@ -111,19 +111,21 @@ class SimulationRunner(Service):
         super().__init__(service_cfg)
 
         self._blueprint_uri = request.blueprint_uri
-
-        self._simulation: ROMSSimulation = ROMSSimulation.from_blueprint(
-            self._blueprint_uri
-        )
-
-        self._output_root = self._simulation.directory.expanduser()
-        self._output_dir = self._get_unique_path(self._output_root)
         self._stages = tuple(request.stages)
-
-        roms_root = os.environ.get("ROMS_ROOT", None)
-        self._simulation.exe_path = pathlib.Path(roms_root) if roms_root else None
-        self._handler = None
         self._job_config = job_cfg
+        # self._handler = None
+        # self._output_root = None
+        # self._output_dir = None
+
+    async def _load_simulation(self) -> None:
+        """Load the simulation from the blueprint."""
+        self._simulation = await ROMSSimulation.from_blueprint(self._blueprint_uri)
+
+        # self._output_root = self._simulation.directory.expanduser()
+        # self._output_dir = self._get_unique_path(self._output_root)
+
+        # roms_root = os.environ.get("ROMS_ROOT", None)
+        # self._simulation.exe_path = pathlib.Path(roms_root) if roms_root else None
 
     @staticmethod
     def _get_unique_path(root_path: pathlib.Path) -> pathlib.Path:
@@ -142,7 +144,7 @@ class SimulationRunner(Service):
         current_time = datetime.now(timezone.utc)
         return root_path / f"{current_time.strftime('%Y%m%d_%H%M%S')}"
 
-    def _prepare_file_system(self) -> None:
+    async def _prepare_file_system(self) -> None:
         """Ensure fresh directories exist for the simulation outputs.
 
         Removes any pre-existing directories and creates empty directories to avoid
@@ -153,11 +155,22 @@ class SimulationRunner(Service):
         ValueError
             If the output directory exists and contains
         """
+        if not self._simulation:
+            raise ValueError("Simulation not loaded.")
+        if not self._output_root:
+            self._output_root = self._simulation.directory.expanduser()
+        if not self._output_dir:
+            self._output_dir = self._get_unique_path(self._output_root)
+
+        roms_root = os.environ.get("ROMS_ROOT", None)
+        self._simulation.exe_path = pathlib.Path(roms_root) if roms_root else None
+
         # ensure that log files don't cause startup to fail.
-        outputs = next(
-            (p for p in self._output_root.glob("*") if LOGS_DIRECTORY not in str(p)),
-            None,
-        )
+        outputs = [
+            p
+            for p in self._output_root.rglob("*")
+            if LOGS_DIRECTORY not in str(p) and p.is_file()
+        ]
 
         if self._output_dir.exists() and outputs:
             msg = f"Output directory {self._output_root} is not empty."
@@ -202,7 +215,7 @@ class SimulationRunner(Service):
             raise CstarError(msg)
 
     @override
-    def _on_start(self) -> None:
+    async def _on_start(self) -> None:
         """Prepare the simulation for execution.
 
         Verifies the simulation loaded properly, configuring the file system, retrieving
@@ -216,12 +229,12 @@ class SimulationRunner(Service):
             msg = f"Unable to load the blueprint: {self._blueprint_uri}"
             raise BlueprintError(msg)
 
-        self._prepare_file_system()
+        await self._prepare_file_system()
 
         try:
             if SimulationStages.SETUP in self._stages:
                 self.log.debug("Setting up simulation")
-                self._simulation.setup()
+                await self._simulation.setup()
             else:
                 self.log.debug("Skipping simulation setup")
 
@@ -284,6 +297,10 @@ class SimulationRunner(Service):
     @override
     async def _on_iteration(self) -> None:
         """Execute the c-star simulation."""
+        if not self._simulation:
+            self.log.error("No simulation available at iteration")
+            return
+
         try:
             if not self._handler:
                 run_params = {

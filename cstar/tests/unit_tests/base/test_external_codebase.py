@@ -87,26 +87,30 @@ class TestSetup:
             fecb = FakeExternalCodeBase(configured=True)
         assert fecb.working_copy.path == tmp_path
 
-    def test_get_skips_if_already_staged(self, fakeexternalcodebase, caplog):
+    @pytest.mark.asyncio
+    async def test_get_skips_if_already_staged(
+        self, fakeexternalcodebase: FakeExternalCodeBase, caplog
+    ) -> None:
         """Confirms that `get()` skips its logic if the codebase is staged"""
         fakeexternalcodebase._working_copy = mock.Mock(
             spec=external_codebase.StagedRepository
         )
         caplog.set_level(logging.INFO, logger=fakeexternalcodebase.log.name)
-        fakeexternalcodebase.get(target_dir=Path("/tmp/foo"))
+        await fakeexternalcodebase.get(target_dir=Path("/tmp/foo"))
 
         assert "already staged" in caplog.text
         assert fakeexternalcodebase.working_copy is not None
 
-    def test_get_default_target_dir_and_stage_called(
-        self, fakeexternalcodebase, tmp_path, caplog
+    @pytest.mark.asyncio
+    async def test_get_default_target_dir_and_stage_called(
+        self, fakeexternalcodebase: FakeExternalCodeBase, tmp_path: Path, caplog
     ):
         """Tests that `get()` invokes default staging location if no target provided.
 
         The default location is <C-star's root directory>/<codebase repository's basename>
         """
         staged_repo = mock.Mock(spec=external_codebase.StagedRepository)
-        fakeexternalcodebase.source.stage = mock.Mock(return_value=staged_repo)
+        fakeexternalcodebase.source.stage = mock.AsyncMock(return_value=staged_repo)  # type: ignore[method-assign]
 
         with mock.patch(
             "cstar.base.external_codebase.cstar_sysmgr._environment"
@@ -114,10 +118,10 @@ class TestSetup:
             mock_env.package_root = tmp_path
             fakeexternalcodebase._working_copy = None
             caplog.set_level(logging.INFO, logger=fakeexternalcodebase.log.name)
-            fakeexternalcodebase.get()
+            await fakeexternalcodebase.get()
 
         assert fakeexternalcodebase.working_copy == staged_repo
-        fakeexternalcodebase.source.stage.assert_called_once()
+        fakeexternalcodebase.source.stage.assert_called_once()  # type: ignore
         assert "defaulting to" in caplog.text
 
 
@@ -170,16 +174,15 @@ class TestConfigure:
                 fakeexternalcodebase_with_mock_get.configure()
         do_configure.assert_called_once()
 
-    def test_setup_calls_get_and_configure(
+    @pytest.mark.asyncio
+    async def test_setup_calls_get_and_configure(
         self, fakeexternalcodebase_with_mock_get, tmp_path
     ):
         """Confirms that `setup` calls both methods it wraps."""
-        with (
-            mock.patch.object(fakeexternalcodebase_with_mock_get, "get") as fake_get,
-            mock.patch.object(
-                fakeexternalcodebase_with_mock_get, "configure"
-            ) as fake_conf,
-        ):
-            fakeexternalcodebase_with_mock_get.setup(tmp_path)
-        fake_get.assert_called_once_with(tmp_path)
+        with mock.patch.object(
+            fakeexternalcodebase_with_mock_get,
+            "configure",
+        ) as fake_conf:
+            await fakeexternalcodebase_with_mock_get.setup(tmp_path)
+        fakeexternalcodebase_with_mock_get.get.assert_called_once_with(tmp_path)
         fake_conf.assert_called_once()

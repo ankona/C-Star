@@ -99,15 +99,15 @@ class StubSimulation(Simulation):
         return cls(**simulation_dict)
 
     @classmethod
-    def from_blueprint(cls, blueprint, directory):
+    async def from_blueprint(cls, blueprint, directory):
         """No-op implementation of abstract method."""
         pass
 
-    def to_blueprint(self, filename):
+    async def to_blueprint(self, filename):
         """No-op implementation of abstract method."""
         pass
 
-    def setup(self):
+    async def setup(self) -> None:
         """No-op implementation of abstract method."""
         pass
 

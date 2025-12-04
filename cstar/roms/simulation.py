@@ -1,5 +1,7 @@
+import asyncio
 import logging
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from functools import partial
@@ -1033,7 +1035,7 @@ class ROMSSimulation(Simulation):
         return simulation_dict
 
     @classmethod
-    def from_blueprint(
+    async def from_blueprint(
         cls,
         blueprint: str,
     ):
@@ -1063,7 +1065,8 @@ class ROMSSimulation(Simulation):
         from_dict : Creates an instance from a dictionary representation.
         """
         source = SourceData(location=blueprint)
-        bp_dict = yaml.safe_load(source.retriever.read().decode("utf-8"))
+        data = await source.retriever.read()
+        bp_dict = yaml.safe_load(data.decode("utf-8"))
 
         bp = RomsMarblBlueprint.model_validate(bp_dict)
         return cls(
@@ -1140,7 +1143,7 @@ class ROMSSimulation(Simulation):
         print_dict["ROMS"] = simulation_tree_dict
         return f"{self.directory}\n{_dict_to_tree(print_dict)}"
 
-    def setup(
+    async def setup(
         self,
     ) -> None:
         """Prepare this ROMSSimulation locally by fetching necessary files and compiling
@@ -1180,28 +1183,33 @@ class ROMSSimulation(Simulation):
 
         self.log.info(f"🛠️ Configuring {self.__class__.__name__}")
 
-        for codebase in filter(lambda x: x is not None, self.codebases):  # type: ExternalCodeBase
+        retrievals = []
+
+        for codebase in (x for x in self.codebases if x is not None):
             self.log.info(f"🔧 Setting up {codebase.__class__.__name__}...")
 
             # if we're running a workplan, for now, set up a code directory for each
             # step, otherwise they may try to clobber each other or get tripped up on
             # detecting existing directories.
-            if os.getenv("CSTAR_FRESH_CODEBASES", "0") == "1":
-                codebase_dir = codebases_dir / codebase.root_env_var.split("_")[0]
-                codebase_dir.mkdir(parents=True, exist_ok=True)
-                codebase.get(codebase_dir)
-                os.environ[codebase.root_env_var] = str(codebase_dir)
-            codebase.setup()
+            codebase_dir = codebases_dir / codebase.root_env_var.split("_")[0]
+            if os.getenv("CSTAR_FRESH_CODEBASES", "0") == "1" and codebase_dir.exists():
+                codebase_dir.unlink()
+
+            codebase_dir.mkdir(parents=True, exist_ok=True)
+            setup_coro = codebase.setup(codebase_dir)
+            os.environ[codebase.root_env_var] = str(codebase_dir)
+
+            retrievals.append(setup_coro)
 
         # Compile-time code
         self.log.info("📦 Fetching compile-time code...")
         if self.compile_time_code is not None:
-            self.compile_time_code.get(compile_time_code_dir)
+            retrievals.append(self.compile_time_code.get(compile_time_code_dir))
 
         # Runtime code
         self.log.info("📦 Fetching runtime code... ")
         if self.runtime_code is not None:
-            self.runtime_code.get(runtime_code_dir)
+            retrievals.append(self.runtime_code.get(runtime_code_dir))
 
         # InputDatasets
         self.log.info("📦 Fetching input datasets...")
@@ -1213,7 +1221,9 @@ class ROMSSimulation(Simulation):
                 or (inp.start_date <= self.end_date)
                 and (self.end_date >= self.start_date)
             ):
-                inp.get(local_dir=input_datasets_dir)
+                retrievals.append(inp.get(local_dir=input_datasets_dir))
+
+        await asyncio.gather(*retrievals)
 
     @property
     def is_setup(self) -> bool:
@@ -1514,7 +1524,10 @@ class ROMSSimulation(Simulation):
         self.roms_runtime_settings.to_file(final_runtime_settings_file)
         run_path.mkdir(parents=True, exist_ok=True)
 
-        script_path = self.directory / "scripts"
+        script_name = job_name or self.name
+        safe_name = re.sub(r"\W", "", script_name.casefold())
+        safe_name = re.sub(r"\s+", "-", safe_name)
+        script_path = self.directory / f"scripts/{safe_name}.sh"
 
         ## 2: RUN ROMS
 

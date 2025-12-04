@@ -23,10 +23,11 @@ from cstar.entrypoint.worker.worker import (
     main,
 )
 from cstar.execution.handler import ExecutionHandler, ExecutionStatus
+from cstar.roms.simulation import ROMSSimulation
 from cstar.simulation import Simulation
 
 DEFAULT_LOOP_DELAY = 5
-DEFAULT_HEALTH_CHECK_FREQUENCY = 10
+DEFAULT_HEALTH_CHECK_FREQUENCY: int | None = None
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -58,7 +59,7 @@ def valid_args_short() -> dict[str, str]:
 
 
 @pytest.fixture(scope="function")
-def sim_runner(
+async def sim_runner(
     blueprint_path: Path, patch_romssimulation_init_sourcedata, tmp_path
 ) -> SimulationRunner:
     """Fixture to create a SimulationRunner instance.
@@ -88,9 +89,9 @@ def sim_runner(
 
     output_path = tmp_path / "output"
 
-    sim._output_root = output_path  # type: ignore[misc]
-    sim._output_dir = output_path / sim._output_dir.name  # type: ignore[misc]
-    sim._simulation.directory = sim._output_dir
+    sim._output_root = tmp_path  # type: ignore[misc]
+    sim._output_dir = output_path  # type: ignore[misc]
+    # sim._simulation.directory = sim._output_dir
 
     return sim
 
@@ -355,7 +356,8 @@ def test_start_runner(
     assert runner._blueprint_uri == request.blueprint_uri
 
 
-def test_runner_directory_check(
+@pytest.mark.asyncio
+async def test_runner_directory_check(
     tmp_path: Path,
     sim_runner: SimulationRunner,
 ) -> None:
@@ -371,16 +373,19 @@ def test_runner_directory_check(
     tmp_path : Path
         A temporary path to store simulation output and logs
     """
+    await sim_runner._load_simulation()
+
+    assert sim_runner._output_dir is not None
+
     sim_runner._output_dir.mkdir(parents=True, exist_ok=True)
     (sim_runner._output_dir / "somefile.txt").touch()
 
-    with (
-        pytest.raises(ValueError),
-    ):
-        sim_runner._prepare_file_system()
+    with pytest.raises(ValueError):
+        await sim_runner._prepare_file_system()
 
 
-def test_runner_directory_check_ignore_logs(
+@pytest.mark.asyncio
+async def test_runner_directory_check_ignore_logs(
     tmp_path: Path,
     sim_runner: SimulationRunner,
 ) -> None:
@@ -404,11 +409,13 @@ def test_runner_directory_check_ignore_logs(
 
     # A file in the logs directory should be ignored
     (logs_dir / "any-name.txt").touch()
+    await sim_runner._load_simulation()
 
-    sim_runner._prepare_file_system()
+    await sim_runner._prepare_file_system()
 
 
-def test_runner_directory_prep(
+@pytest.mark.asyncio
+async def test_runner_directory_prep(
     tmp_path: Path,
     sim_runner: SimulationRunner,
 ) -> None:
@@ -429,9 +436,11 @@ def test_runner_directory_prep(
     # an empty output dir should be ok
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    sim_runner._prepare_file_system()
+    await sim_runner._load_simulation()
+    await sim_runner._prepare_file_system()
 
     # Confirm the output directory is created...
+    assert sim_runner._output_dir
     assert sim_runner._output_dir.exists()
     assert sim_runner._output_dir.is_dir()
     assert sim_runner._output_dir.parent == sim_runner._output_root
@@ -617,18 +626,20 @@ async def test_runner_shutdown_handler_complete(
 
     # Configure the SimulationRunner to run as a service
     sim_runner._config.as_service = True
+    await sim_runner._load_simulation()
 
     mock_status_attr = mock.PropertyMock(return_value=status)
     assert mock_status_attr.call_count == 0
 
     mock_handler = mock.Mock(spec=ExecutionHandler)
+    mock_handler.updates = mock.AsyncMock()
     type(mock_handler).status = mock_status_attr
 
     # don't let it perform any real work
     with (
-        mock.patch.object(sim_runner, "_on_start", mock.Mock),
-        mock.patch.object(sim_runner, "_on_iteration", mock.Mock),
-        mock.patch.object(sim_runner, "_on_shutdown", mock.Mock),
+        mock.patch.object(sim_runner, "_on_start", mock.AsyncMock()),
+        mock.patch.object(sim_runner, "_on_iteration", mock.AsyncMock()),
+        mock.patch.object(sim_runner, "_on_shutdown", mock.Mock()),
         mock.patch.object(sim_runner, "_handler", mock_handler),
     ):
         # and confirm it already says it can exit
@@ -674,6 +685,7 @@ async def test_runner_shutdown_handler_not_complete(
 
     # Configure the SimulationRunner to run as a service
     sim_runner._config.as_service = True
+    await sim_runner._load_simulation()
 
     mock_status_attr = mock.PropertyMock(return_value=status)
     assert mock_status_attr.call_count == 0
@@ -877,10 +889,9 @@ async def test_runner_on_start_user_unhandled_setup(
     mock_iter = mock.Mock()
 
     # configure the simulation to raise an exception during SETUP
-    mock_simulation = mock.Mock(
-        setup=mock.Mock(side_effect=ValueError("Mock setup Failure"))
-    )
-    mock_prep_fs = mock.Mock()
+    mock_simulation = mock.Mock(spec=ROMSSimulation)
+    mock_simulation.setup.side_effect = ValueError("Mock setup Failure")
+    mock_prep_fs = mock.AsyncMock()
     mock_shutdown = mock.Mock()
 
     # don't let it perform any real work
@@ -935,7 +946,7 @@ async def test_runner_on_start_user_unhandled_build(
     mock_simulation = mock.Mock(
         build=mock.Mock(side_effect=RuntimeError("Mock build Failure"))
     )
-    mock_prep_fs = mock.Mock()
+    mock_prep_fs = mock.AsyncMock()
 
     # don't let it perform any real work
     with (
@@ -988,7 +999,7 @@ async def test_runner_on_start_user_unhandled_pre_run(
     mock_simulation = mock.Mock(
         pre_run=mock.Mock(side_effect=Exception("Mock pre-run Failure"))
     )
-    mock_prep_fs = mock.Mock()
+    mock_prep_fs = mock.AsyncMock()
 
     # don't let it perform any real work
     with (
@@ -1033,9 +1044,12 @@ async def test_runner_on_iteration(
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "somefile.txt").touch()
 
-    mock_simulation = mock.Mock()
-    mock_prep_fs = mock.Mock()
+    mock_simulation = mock.Mock(spec=ROMSSimulation)
+    mock_simulation.setup = mock.AsyncMock()
+    mock_prep_fs = mock.AsyncMock()
     mock_shutdown = mock.Mock()
+
+    await sim_runner._load_simulation()
 
     # don't let it perform any real work
     with (
@@ -1134,6 +1148,8 @@ async def test_runner_setup_stage(
 
     mock_simulation.run.configure_mock(side_effect=_mock_run)
 
+    # await sim_runner._load_simulation()
+
     # don't let it perform any real work
     with (
         mock.patch.object(sim_runner, "_start_healthcheck", mock.Mock()),
@@ -1192,10 +1208,7 @@ async def test_worker_main(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_worker_main_exec(
-    blueprint_path: Path,
-    tmp_path: Path,
-) -> None:
+async def test_worker_main_exec(blueprint_path: Path) -> None:
     """Test the main entrypoint of the worker service.
 
     This test verifies that the main function will run the simulation when called
@@ -1211,11 +1224,9 @@ async def test_worker_main_exec(
     ]
 
     # don't let it perform any real work; mock out runner.execute
-    with (
-        mock.patch(
-            "cstar.entrypoint.worker.SimulationRunner.execute",
-            mock_execute,
-        ),
+    with mock.patch(
+        "cstar.entrypoint.worker.SimulationRunner.execute",
+        mock_execute,
     ):
         # This should run the simulation and return a success code
         return_code = await main(args)

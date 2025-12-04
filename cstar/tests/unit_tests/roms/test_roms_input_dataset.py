@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -198,7 +199,8 @@ class TestROMSInputDatasetGet:
         "cstar.base.input_dataset.InputDataset.exists_locally",
         new_callable=mock.PropertyMock,
     )
-    def test_get_skips_if_files_exist_with_partitioned_source(
+    @pytest.mark.asyncio
+    async def test_get_skips_if_files_exist_with_partitioned_source(
         self,
         mock_exists_locally,
         romsinputdataset_remote_partitioned_source,
@@ -232,7 +234,9 @@ class TestROMSInputDatasetGet:
             "working_copy",
             new_callable=mock.PropertyMock(return_value=staged),
         ):
-            romsinputdataset_remote_partitioned_source.get(local_dir=staged_path_parent)
+            await romsinputdataset_remote_partitioned_source.get(
+                local_dir=staged_path_parent
+            )
 
         # Assert the skip message was printed
         assert "already exists, skipping." in caplog.text
@@ -247,7 +251,8 @@ class TestROMSInputDatasetGet:
         "cstar.roms.input_dataset.ROMSInputDataset._get_from_partitioned_source",
         autospec=True,
     )
-    def test_get_with_partitioned_source(
+    @pytest.mark.asyncio
+    async def test_get_with_partitioned_source(
         self,
         mock_get_from_partitioned_source,
         romsinputdataset_remote_partitioned_source,
@@ -258,7 +263,9 @@ class TestROMSInputDatasetGet:
         """
         # Set source partitioning attributes
 
-        romsinputdataset_remote_partitioned_source.get(local_dir=Path("some/local/dir"))
+        await romsinputdataset_remote_partitioned_source.get(
+            local_dir=Path("some/local/dir")
+        )
         mock_get_from_partitioned_source.assert_called_once_with(
             romsinputdataset_remote_partitioned_source,
             local_dir=Path("some/local/dir"),
@@ -266,7 +273,8 @@ class TestROMSInputDatasetGet:
 
         mock_path_resolve.assert_called()
 
-    def test_get_from_partitioned_source_calls_sourcedatacollection_stage(
+    @pytest.mark.asyncio
+    async def test_get_from_partitioned_source_calls_sourcedatacollection_stage(
         self,
         romsinputdataset_remote_partitioned_source,
     ):
@@ -277,16 +285,21 @@ class TestROMSInputDatasetGet:
         is called once on the corresponding SourceDataCollection
         """
         dataset = romsinputdataset_remote_partitioned_source
-        with mock.patch.object(SourceDataCollection, "stage") as mock_stage:
-            dataset._get_from_partitioned_source(local_dir=Path("some/local/dir"))
+        with mock.patch.object(
+            SourceDataCollection,
+            "stage",
+            AsyncMock(return_value=SourceDataCollection),
+        ) as mock_stage:
+            await dataset._get_from_partitioned_source(local_dir=Path("some/local/dir"))
             mock_stage.assert_called_once()
 
-    def test_get_from_partitioned_source_updates_working_copy(
+    @pytest.mark.asyncio
+    async def test_get_from_partitioned_source_updates_working_copy(
         self, romsinputdataset_remote_partitioned_source, mock_path_resolve
     ):
         """Tests the `working_copy` attribute is updated by `get_from_partitioned_source`."""
         dataset = romsinputdataset_remote_partitioned_source  #
-        dataset.get(local_dir=Path("some/local/dir"))
+        await dataset.get(local_dir=Path("some/local/dir"))
         assert isinstance(dataset.working_copy, StagedDataCollection)
         expected_paths = [
             Path("some/local/dir") / s.basename

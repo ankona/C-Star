@@ -126,7 +126,7 @@ class ExternalCodeBase(ABC, LoggingMixin):
         """StagedRepository instance describing the local clone of this codebase (if it exists)"""
         return self._working_copy
 
-    def get(self, target_dir: Path | None = None) -> None:
+    async def get(self, target_dir: Path | None = None) -> None:
         """Retrieve and stage this ExternalCodeBase
 
         Parameters
@@ -151,7 +151,7 @@ class ExternalCodeBase(ABC, LoggingMixin):
                 f"⚠️  No target_dir provided to ExternalCodeBase.get, defaulting to {target_dir}"
             )
 
-        staged_repo = self.source.stage(target_dir=target_dir)
+        staged_repo = await self.source.stage(target_dir=target_dir)
         assert isinstance(staged_repo, StagedRepository)
         self._working_copy = staged_repo
 
@@ -177,7 +177,7 @@ class ExternalCodeBase(ABC, LoggingMixin):
     def _configure(self) -> None:
         """Must be implemented by subclasses"""
 
-    def setup(self, target_dir: Path | None = None) -> None:
+    async def setup(self, target_dir: Path | None = None) -> None:
         """Retrieve and configure this codebase in a single call"""
-        self.get(target_dir)
+        await self.get(target_dir)
         self.configure()

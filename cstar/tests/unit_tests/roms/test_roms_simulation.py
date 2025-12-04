@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 from unittest import mock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -987,7 +988,8 @@ class TestToAndFromDictAndBlueprint:
 
         assert sim_from_dict.to_dict() == sim_to_dict
 
-    def test_from_blueprint_valid_file(self, blueprint_path: Path) -> None:
+    @pytest.mark.asyncio
+    async def test_from_blueprint_valid_file(self, blueprint_path: Path) -> None:
         """Tests that `from_blueprint()` correctly loads a `ROMSSimulation` from a valid
         YAML file.
 
@@ -1000,7 +1002,7 @@ class TestToAndFromDictAndBlueprint:
          - `open()` is called exactly once with the expected file path in read mode.
 
         """
-        sim = ROMSSimulation.from_blueprint(
+        sim = await ROMSSimulation.from_blueprint(
             blueprint=str(blueprint_path),
         )
 
@@ -1016,10 +1018,11 @@ class TestProcessingAndExecution:
     processes.
     """
 
-    @mock.patch.object(ROMSInputDataset, "get")
-    @mock.patch.object(AdditionalCode, "get")
-    @mock.patch.object(ExternalCodeBase, "setup")
-    def test_setup(
+    @pytest.mark.asyncio
+    @mock.patch.object(ROMSInputDataset, "get", return_value=AsyncMock())
+    @mock.patch.object(AdditionalCode, "get", return_value=AsyncMock())
+    @mock.patch.object(ExternalCodeBase, "setup", return_value=AsyncMock())
+    async def test_setup(
         self,
         mock_externalcodebase_setup,
         mock_additionalcode_get,
@@ -1029,7 +1032,7 @@ class TestProcessingAndExecution:
         """Tests that `setup` correctly fetches and organizes simulation components."""
         sim = stub_romssimulation
 
-        sim.setup()
+        await sim.setup()
 
         assert mock_externalcodebase_setup.call_count == 2
         assert mock_additionalcode_get.call_count == 2
@@ -1576,7 +1579,8 @@ class TestProcessingAndExecution:
     @mock.patch.object(
         ROMSSimulation, "roms_runtime_settings", new_callable=mock.PropertyMock
     )
-    def test_run_with_scheduler(
+    @pytest.mark.asyncio
+    async def test_run_with_scheduler(
         self,
         mock_runtime_settings,
         mock_persist,
@@ -1642,6 +1646,7 @@ class TestProcessingAndExecution:
                 cpus=6,
                 account_key="some_key",
                 run_path=sim.directory / "output",
+                script_path=sim.directory / "scripts/romstest.sh",
                 queue_name="default_queue",
                 walltime="12:00:00",
             )

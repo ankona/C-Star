@@ -6,6 +6,7 @@ import pytest
 
 from cstar.io import stager
 from cstar.io.constants import SourceClassification
+from cstar.io.retriever import Retriever
 
 
 class DummyStager(stager.Stager):
@@ -52,7 +53,8 @@ class TestRegistry:
 
 
 class TestStagerABC:
-    def test_stage_calls_retriever_and_returns_stagedfile(
+    @pytest.mark.asyncio
+    async def test_stage_calls_retriever_and_returns_stagedfile(
         self, mocksourcedata_remote_file
     ):
         """Tests that Stager.stage() calls Stager.retriever.save() and returns a StagedFile"""
@@ -60,8 +62,8 @@ class TestStagerABC:
 
         fake_target = Path("/fake/path")
 
-        fake_retriever = mock.Mock()
-        fake_retriever.save.return_value = fake_target
+        fake_retriever = mock.Mock(spec=Retriever)
+        fake_retriever.save = mock.AsyncMock(return_value=fake_target)
 
         with (
             mock.patch.object(
@@ -72,7 +74,7 @@ class TestStagerABC:
             mock_ret.return_value = fake_retriever
             s = stager.RemoteBinaryFileStager(source)
 
-            result = s.stage(Path("/tmp"))
+            result = await s.stage(Path("/tmp"))
 
         fake_retriever.save.assert_called_once_with(target_dir=Path("/tmp"))
         mock_staged.assert_called_once_with(
@@ -98,7 +100,8 @@ class TestStagerSubclasses:
             inst = stager.get_stager(source)
             assert isinstance(inst, cls)
 
-    def test_local_binary_file_stager_creates_symlink(
+    @pytest.mark.asyncio
+    async def test_local_binary_file_stager_creates_symlink(
         self, tmp_path, mocksourcedata_local_file
     ):
         """Tests that LocalBinaryFileStager.stage() creates a symbolic link to the source file."""
@@ -112,7 +115,7 @@ class TestStagerSubclasses:
         staging_dir.mkdir()
 
         s = stager.LocalBinaryFileStager(source)
-        result = s.stage(staging_dir)
+        result = await s.stage(staging_dir)
 
         target = staging_dir / "source.bin"
         assert target.is_symlink()
@@ -120,7 +123,8 @@ class TestStagerSubclasses:
         assert result.source is source
         assert result.path == target
 
-    def test_remote_repository_stager_returns_stagedrepo(
+    @pytest.mark.asyncio
+    async def test_remote_repository_stager_returns_stagedrepo(
         self, tmp_path, mocksourcedata_remote_repo
     ):
         """Tests that RemoteRepositoryStager.stage calls .retriever.save returns a StagedRepository."""
@@ -128,7 +132,7 @@ class TestStagerSubclasses:
         fake_path = tmp_path / "repo"
 
         fake_retriever = mock.Mock()
-        fake_retriever.save.return_value = fake_path
+        fake_retriever.save = mock.AsyncMock(return_value=fake_path)
 
         with (
             mock.patch.object(
@@ -140,7 +144,7 @@ class TestStagerSubclasses:
         ):
             mock_ret.return_value = fake_retriever
             s = stager.RemoteRepositoryStager(source)
-            result = s.stage(tmp_path)
+            result = await s.stage(tmp_path)
 
         fake_retriever.save.assert_called_once_with(target_dir=tmp_path)
         mock_staged_repo.assert_called_once_with(source=source, path=fake_path)

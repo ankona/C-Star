@@ -1,3 +1,4 @@
+import asyncio
 import datetime as dt
 import shutil
 import tempfile
@@ -273,7 +274,7 @@ class ROMSInputDataset(InputDataset, ABC):
             if tempdir_obj:
                 tempdir_obj.cleanup()
 
-    def get(
+    async def get(
         self,
         local_dir: str | Path,
     ) -> None:
@@ -292,27 +293,33 @@ class ROMSInputDataset(InputDataset, ABC):
 
         # partitioned source
         if self.source_partitioning:
-            self._get_from_partitioned_source(local_dir)
+            await self._get_from_partitioned_source(local_dir)
 
         # regular (netCDF) source
         else:
-            super().get(local_dir=local_dir)
+            await super().get(local_dir=local_dir)
 
-    def _get_from_partitioned_source(self, local_dir: Path) -> None:
+    async def _get_from_partitioned_source(self, local_dir: Path) -> None:
         """Stages partitioned source files, checking pre-existence individually."""
         # If some (or all) files exist, go through and check which ones (if any) to stage:
         if self.working_copy:
+            requests = []
+
             for i, s in enumerate(self.partitioned_source):
                 target_path = local_dir / s.basename
                 if self.working_copy and self.working_copy[i].path == target_path:  # type: ignore[index]
                     self.log.info(f"⏭️ {target_path} already exists, skipping.")
                     continue
                 else:
-                    self._working_copy.append(s.stage(local_dir))  # type: ignore[union-attr]
+                    requests.append(s.stage(local_dir))
+
+            results = await asyncio.gather(*requests)
+            for item in results:
+                self._working_copy.append(item)  # type: ignore[union-attr]
             return
         # Otherwise stage them all:
         else:
-            self._working_copy = self.partitioned_source.stage(local_dir)
+            self._working_copy = await self.partitioned_source.stage(local_dir)
 
     def _update_partitioning_attribute(
         self, new_np_xi: int, new_np_eta: int, parted_files: list[Path]

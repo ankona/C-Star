@@ -473,7 +473,7 @@ class TestSimulationPersistence:
       raises an error if the simulation is currently running.
     """
 
-    def test_persist_creates_file(self, stub_simulation):
+    def test_persist_creates_file(self, stub_simulation: StubSimulation) -> None:
         """Test that `persist()` creates the expected simulation state file.
 
         This test verifies that calling `persist()` results in a
@@ -488,11 +488,15 @@ class TestSimulationPersistence:
         - The `simulation_state.pkl` file is successfully created in the directory.
         """
         sim = stub_simulation
-        sim.codebase._source = None  # Can't pickle mocked SourceData
+
+        # Can't pickle mocked attributes
+        sim.codebase._source = None  # type: ignore
+        sim.codebase.get = None  # type: ignore
+
         sim.persist()
         assert sim.directory / "simulation_state.pkl", "Persisted file was not created."
 
-    def test_persist_and_restore(self, stub_simulation):
+    def test_persist_and_restore(self, stub_simulation: StubSimulation) -> None:
         """Test that `persist()` and `restore()` correctly save and reload a
         `Simulation`.
 
@@ -509,6 +513,11 @@ class TestSimulationPersistence:
         - The serialized version of the restored instance matches the original.
         """
         sim = stub_simulation
+
+        # Can't pickle mocked attributes
+        sim.codebase._source = None  # type: ignore
+        sim.codebase.get = None  # type: ignore
+
         sim.persist()
         restored_sim = StubSimulation.restore(sim.directory)
 
@@ -517,7 +526,7 @@ class TestSimulationPersistence:
             "Serialized data mismatch after restore"
         )
 
-    def test_restore_missing_file(self, tmp_path):
+    def test_restore_missing_file(self, tmp_path: Path) -> None:
         """Test that `restore()` raises an error when the state file is missing.
 
         This test ensures that attempting to restore a `Simulation` instance fails
