@@ -43,7 +43,7 @@ class SimulationStages(enum.StrEnum):
     """Execute hooks after the simulation completes. See `Simulation.post_run`"""
 
 
-@dc.dataclass(frozen=True)
+@dc.dataclass
 class BlueprintRequest:
     """Represents a request to run a c-star simulation."""
 
@@ -54,6 +54,10 @@ class BlueprintRequest:
 
     Defaults to all stages.
     """
+
+    def __post_init__(self) -> None:
+        if SimulationStages.POST_RUN in self.stages:
+            self.stages = set(self.stages).difference({SimulationStages.POST_RUN})  # type: ignore[assignment], # TODO: remove
 
 
 @dc.dataclass(frozen=True)
@@ -75,7 +79,7 @@ class SimulationRunner(Service):
 
     _blueprint_uri: Final[str]
     """The URI of the blueprint to run."""
-    _output_root: pathlib.Path
+    _output_root: pathlib.Path | None = None
     """The root directory where simulation outputs will be written."""
     _output_dir: pathlib.Path | None = None
     """A unique directory for this simulation run to write outputs."""
@@ -471,7 +475,8 @@ def get_request(args: argparse.Namespace) -> BlueprintRequest:
     """
     return BlueprintRequest(
         blueprint_uri=args.blueprint_uri,
-        stages=args.stages,
+        # stages=args.stages,
+        stages=(SimulationStages.BUILD, SimulationStages.SETUP),
     )
 
 

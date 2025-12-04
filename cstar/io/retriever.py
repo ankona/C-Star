@@ -1,10 +1,12 @@
 import asyncio
 import hashlib
+import multiprocessing as mp
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
+import aiofiles
 import requests
 
 from cstar.base.gitutils import _checkout, _clone
@@ -66,6 +68,15 @@ class Retriever(ABC):
         """Retrieve data to memory, if supported"""
         pass
 
+    # def save(self, target_dir: Path) -> Path:
+    #     """
+    #     Save this object to the given directory.
+
+    #     This method performs common setup ( ensuring the target directory exists)
+    #     and then calls the subclass-defined `_save()` method for the actual save.
+    #     """
+    #     return asyncio.run(self.save_async(target_dir))
+
     async def save(self, target_dir: Path) -> Path:
         """
         Save this object to the given directory.
@@ -95,6 +106,7 @@ class RemoteFileRetriever(Retriever, ABC):
 
     async def read(self) -> bytes:
         """Reads this remote file's contents into memory using `requests`"""
+        print("Retrieving via: RemoteFileRetriever")
         response = await asyncio.to_thread(
             requests.get, self.source.location, allow_redirects=True
         )
@@ -141,15 +153,21 @@ class RemoteBinaryFileRetriever(RemoteFileRetriever):
         target_dir.mkdir(parents=True, exist_ok=True)
         target_path = target_dir / self.source.basename
 
+        print("Retrieving via: RemoteBinaryFileRetriever")
         r = await asyncio.to_thread(
             requests.get, self.source.location, stream=True, allow_redirects=True
         )
         # with requests.get(self.source.location, stream=True, allow_redirects=True) as r:
         r.raise_for_status()
-        with open(target_path, "wb") as f:
+        # with open(target_path, "wb") as f:
+        #     for chunk in r.iter_content(chunk_size=8192):  # Download in 8kB chunks
+        #         if chunk:
+        #             f.write(chunk)
+        #             hash_obj.update(chunk)
+        async with aiofiles.open(target_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):  # Download in 8kB chunks
                 if chunk:
-                    f.write(chunk)
+                    await f.write(chunk)
                     hash_obj.update(chunk)
 
         # Hash verification if specified in "SourceData":
@@ -204,6 +222,7 @@ class LocalFileRetriever(Retriever):
         bytes:
            raw bytes from the read
         """
+        print("Retrieving via: LocalFileRetriever")
         with open(self.source.location, "rb") as f:
             return await asyncio.to_thread(f.read)
 
@@ -220,6 +239,7 @@ class LocalFileRetriever(Retriever):
         pathlib.Path:
             The path of the saved file
         """
+        print("Saving via: LocalFileRetriever")
         target_path = target_dir / self.source.basename
         await asyncio.to_thread(
             shutil.copy2, src=Path(self.source.location).resolve(), dst=target_path
@@ -278,16 +298,37 @@ class RemoteRepositoryRetriever(Retriever):
         if any(target_dir.iterdir()):
             raise ValueError(f"cannot clone repository to {target_dir} - dir not empty")
 
-        await asyncio.to_thread(
-            _clone,
-            source_repo=self.source.location,
-            local_path=target_dir,
+        print("Saving via RemoteRepositoryRetriever")
+        # await asyncio.to_thread(
+        #     _clone,
+        #     source_repo=self.source.location,
+        #     local_path=target_dir,
+        # )
+        p = mp.Process(
+            target=_clone,
+            kwargs={"source_repo": self.source.location, "local_path": target_dir},
         )
-        if self.source.checkout_target:
-            await asyncio.to_thread(
-                _checkout,
-                source_repo=self.source.location,
-                local_path=target_dir,
-                checkout_target=self.source.checkout_target,
-            )
+        p.start()
+
+        while p.exitcode is None:
+            await asyncio.sleep(3.0)
+
+        p = mp.Process(
+            target=_checkout,
+            kwargs={
+                "source_repo": self.source.location,
+                "local_path": target_dir,
+                "checkout_target": self.source.checkout_target,
+            },
+        )
+        p.start()
+        # if self.source.checkout_target:
+        #     await asyncio.to_thread(
+        #         _checkout,
+        #         source_repo=self.source.location,
+        #         local_path=target_dir,
+        #         checkout_target=self.source.checkout_target,
+        #     )
+        while p.exitcode is None:
+            await asyncio.sleep(3.0)
         return target_dir

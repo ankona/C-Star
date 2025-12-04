@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from itertools import chain
 from pathlib import Path
@@ -1185,6 +1185,8 @@ class ROMSSimulation(Simulation):
 
         retrievals = []
 
+        sd1 = datetime.now(timezone.utc)
+
         for codebase in (x for x in self.codebases if x is not None):
             self.log.info(f"🔧 Setting up {codebase.__class__.__name__}...")
 
@@ -1201,15 +1203,36 @@ class ROMSSimulation(Simulation):
 
             retrievals.append(setup_coro)
 
+        # await asyncio.gather(*retrievals)
+        ed1 = datetime.now(timezone.utc)
+        self.log.info(
+            f"📦 Fetching codebases completed in {(ed1 - sd1).total_seconds()}"
+        )
+        # retrievals.clear()
+
+        sd2 = datetime.now(timezone.utc)
         # Compile-time code
         self.log.info("📦 Fetching compile-time code...")
         if self.compile_time_code is not None:
-            retrievals.append(self.compile_time_code.get(compile_time_code_dir))
+            coro = self.compile_time_code.get(compile_time_code_dir)
+            # await coro
+            retrievals.append(coro)
 
         # Runtime code
         self.log.info("📦 Fetching runtime code... ")
         if self.runtime_code is not None:
-            retrievals.append(self.runtime_code.get(runtime_code_dir))
+            coro = self.runtime_code.get(runtime_code_dir)
+            # await coro
+            retrievals.append(coro)
+
+        # await asyncio.gather(*retrievals)
+        ed2 = datetime.now(timezone.utc)
+        self.log.info(
+            f"📦 Fetching compile time and runtime code completed in {(ed2 - sd2).total_seconds()}"
+        )
+        # retrievals.clear()
+
+        sd3 = datetime.now(timezone.utc)
 
         # InputDatasets
         self.log.info("📦 Fetching input datasets...")
@@ -1221,9 +1244,19 @@ class ROMSSimulation(Simulation):
                 or (inp.start_date <= self.end_date)
                 and (self.end_date >= self.start_date)
             ):
-                retrievals.append(inp.get(local_dir=input_datasets_dir))
+                # retrievals.append(inp.get(local_dir=input_datasets_dir))
+                coro = inp.get(local_dir=input_datasets_dir)
+                # await coro
+                retrievals.append(coro)
 
         await asyncio.gather(*retrievals)
+        ed3 = datetime.now(timezone.utc)
+        self.log.info(
+            f"📦 Fetching input datasets completed in {(ed3 - sd3).total_seconds()}"
+        )
+        self.log.info(
+            f"External repositories gathered in {(ed3 - sd1).total_seconds()} codebases "
+        )
 
     @property
     def is_setup(self) -> bool:
