@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from cstar.cli.core import PathConverterAction, RegistryResult, cli_activity
+from cstar.orchestration.dag_runner import transform_workplan
 from cstar.orchestration.models import Workplan
 from cstar.orchestration.orchestration import Planner
 from cstar.orchestration.serialization import deserialize
@@ -216,7 +217,12 @@ async def handle(ns: argparse.Namespace) -> None:
 
     try:
         if workplan := deserialize(ns.path, Workplan):
-            planner = Planner(workplan)
+            if ns.transform:
+                transformed = transform_workplan(workplan)
+                planner = Planner(transformed)
+            else:
+                planner = Planner(workplan)
+
             plan_path = await render(
                 planner,
                 ns.output_dir,
@@ -264,6 +270,12 @@ def create_action() -> RegistryResult:
             default=Path.cwd(),
             dest="output_dir",
             action=PathConverterAction,
+        )
+        parser.add_argument(
+            "--transform",
+            help="Include internal transformations applied to the plan.",
+            default=False,
+            action="store_true",
         )
         parser.set_defaults(handler=handle)
         return parser

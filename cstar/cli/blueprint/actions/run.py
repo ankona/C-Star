@@ -25,12 +25,13 @@ def configure_simulation_runner(path: Path) -> SimulationRunner:
     """
     account_id = os.getenv("CSTAR_SLURM_ACCOUNT", "")
     walltime = os.getenv("CSTAR_SLURM_WALLTIME", "48:00:00")
+    priority = os.getenv("CSTAR_SLURM_QUEUE", "")
 
     request = BlueprintRequest(path.as_posix())
     service_config = ServiceConfiguration(
         loop_delay=0, health_check_frequency=300, health_check_log_threshold=25
     )
-    job_config = JobConfig(account_id, walltime)
+    job_config = JobConfig(account_id, walltime, priority)
 
     return SimulationRunner(request, service_config, job_config)
 

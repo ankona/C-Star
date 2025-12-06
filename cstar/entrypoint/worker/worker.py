@@ -49,8 +49,11 @@ class BlueprintRequest:
 
     blueprint_uri: str
     """The path to the blueprint."""
-    stages: tuple[SimulationStages, ...] = dc.field(default=())
-    """The simulation stages to execute."""
+    stages: list[SimulationStages] = dc.field(default_factory=list)
+    """The simulation stages to execute.
+
+    Defaults to all stages.
+    """
 
 
 @dc.dataclass(frozen=True)
@@ -279,11 +282,10 @@ class SimulationRunner(Service):
             self._log_disposition()
 
     @override
-    def _on_iteration(self) -> None:
+    async def _on_iteration(self) -> None:
         """Execute the c-star simulation."""
         try:
             if not self._handler:
-                # if os.environ.get("SLURM_JOB_ID", True):
                 run_params = {
                     "account_key": self._job_config.account_id,
                     "walltime": self._job_config.walltime,
@@ -296,7 +298,7 @@ class SimulationRunner(Service):
                 else:
                     self.log.debug("Skipping simulation run")
             else:
-                self._handler.updates(1.0)
+                await self._handler.updates(seconds=1.0)
                 self._send_update_to_hc({"status": str(self._handler.status)})
         except Exception:
             self.log.exception("An error occurred while running the simulation")
@@ -316,7 +318,6 @@ class SimulationRunner(Service):
             ExecutionStatus.COMPLETED,
             ExecutionStatus.CANCELLED,
             ExecutionStatus.FAILED,
-            ExecutionStatus.UNKNOWN,
         ]
 
     @override
@@ -384,7 +385,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-g",
         "--stage",
-        default=tuple(x for x in SimulationStages),
+        choices=[x.value for x in SimulationStages],
         type=str,
         required=False,
         action="append",
@@ -410,7 +411,7 @@ def get_service_config(args: argparse.Namespace) -> ServiceConfiguration:
     return ServiceConfiguration(
         as_service=True,
         loop_delay=5,
-        health_check_frequency=10,
+        health_check_frequency=None,
         log_level=logging.getLevelNamesMapping()[args.log_level],
         health_check_log_threshold=10,
         name="SimulationRunner",
@@ -449,6 +450,9 @@ def get_request(args: argparse.Namespace) -> BlueprintRequest:
     BlueprintRequest
         A request configured to run a c-star simulation via a blueprint.
     """
+    if not args.stages:
+        args.stages = tuple(SimulationStages)
+
     return BlueprintRequest(
         blueprint_uri=args.blueprint_uri,
         stages=args.stages,
@@ -470,18 +474,6 @@ def configure_environment(log: logging.Logger) -> None:
     # ensure no human interaction is required
     os.environ["GIT_DISCOVERY_ACROSS_FILESYSTEM"] = "1"
 
-    # TODO: re-run tests now that prebuilt is gone and rebase on develop is in.
-    # is_roms_prebuilt = os.environ.get("CSTAR_ROMS_PREBUILT", None) == "1"
-    # is_marbl_prebuilt = os.environ.get("CSTAR_MARBL_PREBUILT", None) == "1"
-
-    # if is_roms_prebuilt:
-    #     ext_root = os.environ.get("ROMS_ROOT", None)
-    #     log.debug("Using prebuilt ROMS at: %s", ext_root)
-
-    # if is_marbl_prebuilt:
-    #     ext_root = os.environ.get("MARBL_ROOT", None)
-    #     log.debug("Using prebuilt MARBL at: %s", ext_root)
-
 
 async def main(raw_args: list[str]) -> int:
     """Run the c-star worker script.
@@ -502,12 +494,19 @@ async def main(raw_args: list[str]) -> int:
     else:
         service_cfg = get_service_config(args)
         blueprint_req = get_request(args)
-        job_cfg = JobConfig()  # use default HPC config
+        job_cfg = JobConfig(
+            account_id=os.environ.get("CSTAR_SLURM_ACCOUNT", ""),
+            walltime=os.environ.get("CSTAR_SLURM_MAX_WALLTIME", "01:00:00"),
+            priority=os.environ.get("CSTAR_SLURM_QUEUE", ""),
+        )
 
     log = get_logger(__name__, level=service_cfg.log_level)
+    log.info(f"Running job with config: {job_cfg}")
 
     try:
         configure_environment(log)
+        log.info(f"Configuring simulation runner with config: {service_cfg}")
+        log.info(f"Starting simulation with request: {blueprint_req}")
         worker = SimulationRunner(blueprint_req, service_cfg, job_cfg)
         await worker.execute()
     except CstarError as ex:

@@ -26,7 +26,7 @@ from cstar.execution.handler import ExecutionHandler, ExecutionStatus
 from cstar.simulation import Simulation
 
 DEFAULT_LOOP_DELAY = 5
-DEFAULT_HEALTH_CHECK_FREQUENCY = 10
+DEFAULT_HEALTH_CHECK_FREQUENCY: int | None = None
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -70,7 +70,7 @@ def sim_runner(
     """
     request = BlueprintRequest(
         str(blueprint_path),
-        stages=tuple(SimulationStages),
+        stages=list(SimulationStages),
     )
 
     service_config = ServiceConfiguration(
@@ -588,7 +588,6 @@ async def test_runner_shutdown_no_update_handler(
         ExecutionStatus.COMPLETED,
         ExecutionStatus.CANCELLED,
         ExecutionStatus.FAILED,
-        ExecutionStatus.UNKNOWN,
     ],
 )
 @pytest.mark.asyncio
@@ -1124,7 +1123,7 @@ async def test_runner_setup_stage(
 
     request = BlueprintRequest(
         str(blueprint_path),
-        stages=tuple(stages),
+        stages=list(stages),
     )
 
     setattr(sim_runner, "_stages", tuple(request.stages))

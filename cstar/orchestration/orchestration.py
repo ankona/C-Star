@@ -3,7 +3,6 @@ import typing as t
 from enum import IntEnum, StrEnum, auto
 
 import networkx as nx
-from pydantic import Field
 
 from cstar.base.exceptions import CstarExpectationFailed
 from cstar.orchestration.models import Step, Workplan
@@ -150,7 +149,7 @@ class Planner:
     workplan: Workplan
     """The workplan to plan."""
 
-    graph: nx.DiGraph = Field(init=False)
+    graph: nx.DiGraph
     """The graph used for task planning."""
 
     def __init__(
@@ -436,8 +435,12 @@ class Orchestrator:
 
         working_list = set(nodes).difference(closed_set)
 
-        if any(Status.is_failure(g.nodes[u][KEY_STATUS]) for u in closed_set):
-            print("Exiting due to execution failures")
+        if failures := {
+            u: g.nodes[u][KEY_STATUS]
+            for u in closed_set
+            if Status.is_failure(g.nodes[u][KEY_STATUS])
+        }:
+            print(f"Exiting due to task failures: {failures}")
             return None
 
         for n in working_list:

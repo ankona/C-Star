@@ -22,13 +22,22 @@ from pydantic import (
 )
 from pytimeparse import parse
 
+from cstar.orchestration.utils import slugify
+
 RequiredString: t.TypeAlias = t.Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1),
 ]
 """A non-empty string with no leading or trailing whitespace."""
 
-KeyValueStore: t.TypeAlias = dict[str, str | float | list[str] | list[float]]
+KeyValueStore: t.TypeAlias = dict[
+    str,
+    str
+    | float
+    | list[str]
+    | list[float]
+    | dict[str, str | float | list[str] | dict[str, str]],
+]
 """A collection of user-defined key-value pairs."""
 
 TargetDirectoryPath = t.Annotated[
@@ -439,23 +448,67 @@ class Step(BaseModel):
     )
     """A collection of key-value pairs specifying overrides for workflow attributes."""
 
-    # @field_validator("blueprint", mode="after")
-    # @classmethod
-    # def _check_blueprint(cls, value: FilePath | str) -> Path:
-    #     """Convert strings into paths.
+    @property
+    def safe_job_name(self) -> str:
+        """The name of the job that will be executed."""
+        return slugify(self.name)
 
-    #     Parameters
-    #     ----------
-    #     value : FilePath or str
-    #         The value received from the input.
+    def output_root(self, bp: RomsMarblBlueprint | None = None) -> Path:
+        """The step-relative directory for writing outputs."""
+        runtime_overrides = t.cast(
+            dict[str, str], self.blueprint_overrides.get("runtime_params", {})
+        )
+        output_dir: str | Path = runtime_overrides.get("output_dir", "")
 
-    #     Returns
-    #     -------
-    #     Path
-    #         The input value converted to a pathlib.Path
+        if output_dir:
+            # runtime override will always take precedence
+            return Path(output_dir)
 
-    #     """
-    #     return Path(value)
+        if not bp:
+            raise ValueError("Blueprint is required to determine output path")
+
+        # use the blueprint root path if it hasn't been overridden
+        return Path(bp.runtime_params.output_dir) / self.safe_job_name
+
+    def tasks_dir(self, bp: RomsMarblBlueprint | None = None) -> Path:
+        """The step-relative directory for writing outputs of sub-tasks."""
+        return self.output_root(bp) / "tasks"
+
+    def output_dir(self, bp: RomsMarblBlueprint | None = None) -> Path:
+        """Compute a step-relative path for the storage of the output files."""
+        return self.output_root(bp) / "outputs"
+
+    def logs_dir(self, bp: RomsMarblBlueprint | None = None) -> Path:
+        """Compute a step-relative path for the storage of the output files."""
+        return self.output_dir(bp) / "logs"
+
+    def output_file(self, bp: RomsMarblBlueprint | None = None) -> Path:
+        """Compute a step-relative path for the storage of the output files."""
+        return self.logs_dir(bp) / f"{self.safe_job_name}.out"
+
+    def work_dir(self, bp: RomsMarblBlueprint | None = None) -> Path:
+        """Compute a step-relative path for the storage of the script."""
+        return self.output_root(bp) / "work"
+
+    def script_path(self, bp: RomsMarblBlueprint | None = None) -> Path:
+        """Compute a step-relative path for the storage of the script."""
+        return self.work_dir(bp) / f"{self.safe_job_name}.sh"
+
+    def run_path(self, bp: RomsMarblBlueprint) -> Path:
+        """Compute a step-relative path for working directory of the script."""
+        return self.script_path(bp).parent
+
+    def restart_path(self, segment_id: str, bp: RomsMarblBlueprint) -> Path:
+        """Compute a step-relative path where reset files will be located."""
+        # name format is ".*_rst.??????????????.*.nc"
+        return self.output_dir(bp) / f".*_rst.{segment_id}.*.nc"
+
+
+class ChildStep(Step):
+    """An step spawned as a subtask of another step."""
+
+    parent: str | None = Field(default=None, validate_default=False, frozen=True)
+    """The name of the parent step if this step was created via splitting."""
 
 
 class Workplan(BaseModel):
@@ -540,7 +593,6 @@ class Workplan(BaseModel):
         """
         name_counter = t.Counter(step.name for step in value)
         most_common = name_counter.most_common(1)
-        step_name, step_count = most_common[0]
         step_name, step_count = most_common[0] if most_common else ("", 0)
 
         if step_count > 1:
