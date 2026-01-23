@@ -26,7 +26,7 @@ def configure_simulation_runner(path: Path) -> SimulationRunner:
         A simulation runner configured to execute the blueprint
     """
     account_id = os.getenv("CSTAR_SLURM_ACCOUNT", "")
-    walltime = os.getenv("CSTAR_SLURM_WALLTIME", "48:00:00")
+    walltime = os.getenv("CSTAR_SLURM_MAX_WALLTIME", "48:00:00")
 
     request = BlueprintRequest(path.as_posix())
     print(f"Configured request: {request}")
