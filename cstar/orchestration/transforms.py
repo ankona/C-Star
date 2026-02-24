@@ -1,3 +1,4 @@
+import itertools
 import os
 import typing as t
 from collections import defaultdict
@@ -15,14 +16,12 @@ from cstar.base.utils import (
     deep_merge,
     slugify,
 )
-from cstar.execution.file_system import RomsFileSystemManager
 from cstar.orchestration.models import (
     Application,
-    ChildStep,
     RomsMarblBlueprint,
-    Step,
     Workplan,
 )
+from cstar.orchestration.orchestration import LiveStep
 from cstar.orchestration.serialization import deserialize, serialize
 from cstar.orchestration.utils import ENV_CSTAR_ORCH_TRX_FREQ
 
@@ -32,7 +31,7 @@ class Transform(t.Protocol):
     new steps.
     """
 
-    def __call__(self, step: Step) -> t.Iterable[Step]:
+    def __call__(self, step: LiveStep) -> t.Iterable[LiveStep]:
         """Apply the transform to a step.
 
         Parameters
@@ -254,37 +253,15 @@ class WorkplanTransformer(LoggingMixin):
             If the source and target paths are identical
         """
         if not target_dir and not suffix:
-            raise ValueError(
-                f"Identical source and target may result in overwriting the source: `{source}`"
-            )
+            msg = f"Identical source and target will destroy the source: `{source}`"
+            raise ValueError(msg)
 
-        directory = target_dir if target_dir else source.parent
+        directory = target_dir or source.parent
         filename = Path(source.name).with_stem(f"{source.stem}{suffix}")
         if extension:
             filename = filename.with_suffix(extension)
 
         return directory / filename
-
-    def _ensure_unique_paths(self, steps: list[Step]) -> None:
-        """Modify any steps that do not include the unique run-id in their
-        output directory.
-
-        Parameters
-        ----------
-        steps : list[Step]
-            The steps to be modified.
-        """
-        # HACK: force-update the step output directories to avoid collisions
-        for step in steps:
-            bp = deserialize(step.blueprint_path, RomsMarblBlueprint)
-            overrides = step.blueprint_overrides
-            if "runtime_params" not in overrides:
-                step.blueprint_overrides["runtime_params"] = {}
-            runtime_params = t.cast(
-                dict[str, Path], overrides.get("runtime_params", {})
-            )
-            if "output_dir" not in runtime_params:
-                runtime_params["output_dir"] = step.working_dir(bp)
 
     def apply(self) -> Workplan:
         """Create a new workplan with appropriate transforms applied.
@@ -296,34 +273,44 @@ class WorkplanTransformer(LoggingMixin):
         if self._transformed:
             return self._transformed
 
-        steps = list(self.original.steps)
-
-        if is_feature_enabled(ENV_FF_ORCH_TRX_TIMESPLIT):
-            steps = []
-
-            for step in self.original.steps:
-                transformed_steps = list(self.transform_fn(step))
-
-                # replace dependencies on the original step with the last transformed step
-                tweaks = (s for s in self.original.steps if step.name in s.depends_on)
-                for tweak in tweaks:
-                    tweak.depends_on.remove(step.name)
-                    tweak.depends_on.append(transformed_steps[-1].name)
-
-                steps.extend(transformed_steps)
-
-        override_transform = OverrideTransform()
-
-        for i, step in enumerate(steps):
-            overridden_step_result = list(override_transform(step))
-            steps[i] = overridden_step_result[0]
-
-        wp_attrs = self.original.model_dump()
-        wp_attrs.update(
-            {"steps": steps, "name": f"{self.original.name} (transformed)"},
+        # ensure consistent output targets for all steps in the workplan
+        live_steps = [LiveStep.from_step(s) for s in self.original.steps]
+        steps: t.Iterable[LiveStep] = list(
+            map(override_output_directory, live_steps),
         )
 
-        self._transformed = Workplan(**wp_attrs)
+        if is_feature_enabled(ENV_FF_ORCH_TRX_TIMESPLIT):
+            split_steps: list[LiveStep] = []
+            named_dep_map: dict[str, str] = {}
+
+            for step in steps:
+                transformed_steps = list(self.transform_fn(step))
+                named_dep_map[step.name] = transformed_steps[-1].name
+                split_steps.extend(transformed_steps)
+
+            for step in split_steps:
+                depends_on = {str(d) for d in step.depends_on}
+
+                if to_update := depends_on.intersection(named_dep_map):
+                    depends_on.update(named_dep_map[x] for x in to_update)
+                    depends_on.difference_update(to_update)
+
+                    step.depends_on.clear()
+                    step.depends_on.extend(depends_on)
+
+            steps = split_steps
+
+        # apply any overrides produced in the transform function
+        override_transform = OverrideTransform()
+        steps = list(itertools.chain.from_iterable(map(override_transform, steps)))
+
+        self._transformed = self.original.model_copy(
+            update={
+                "steps": steps,
+                "name": f"{self.original.name} (transformed)",
+            },
+        )
+
         return self._transformed
 
 
@@ -339,7 +326,7 @@ class RomsMarblTimeSplitter(Transform):
         """Initialize the transform instance."""
         self.frequency = os.getenv(ENV_CSTAR_ORCH_TRX_FREQ, frequency)
 
-    def __call__(self, step: Step) -> t.Iterable[Step]:
+    def __call__(self, step: LiveStep) -> t.Iterable[LiveStep]:
         """Split a step into multiple sub-steps.
 
         Parameters
@@ -356,16 +343,15 @@ class RomsMarblTimeSplitter(Transform):
         start_date = blueprint.runtime_params.start_date
         end_date = blueprint.runtime_params.end_date
 
-        job_fs = step.file_system(blueprint)
-
-        bp_path = job_fs.work_dir / Path(step.blueprint_path).name
+        bp_path = step.fsm.work_dir / Path(step.blueprint_path).name
         serialize(bp_path, blueprint)
 
         time_slices = list(get_time_slices(start_date, end_date, self.frequency))
         n_slices = len(time_slices)
 
         if end_date <= start_date:
-            raise ValueError("end_date must be after start_date")
+            msg = "end_date must be after start_date"
+            raise ValueError(msg)
 
         depends_on = step.depends_on
         last_restart_file: Path | None = None
@@ -386,9 +372,7 @@ class RomsMarblTimeSplitter(Transform):
             dynamic_name = f"{i + 1:03d}_{step.safe_name}_{compact_sd}_{compact_ed}"
             child_step_name = slugify(dynamic_name)
 
-            child_root = job_fs.tasks_dir
-            child_out_dir = child_root / child_step_name
-            child_fs = RomsFileSystemManager(child_out_dir)
+            child_fs = step.fsm.get_subtask_manager(child_step_name)
 
             description = f"Subtask {i + 1} of {n_slices}; Timespan: {sd} to {ed}; {bp_copy.description}"
             overrides = {
@@ -408,24 +392,13 @@ class RomsMarblTimeSplitter(Transform):
             child_bp_path = child_fs.work_dir / f"{child_step_name}_bp.yaml"
             serialize(child_bp_path, bp_copy)
 
-            attributes = step.model_dump(
-                exclude={
-                    "blueprint",
-                    "name",
-                    "depends_on",
-                    "blueprint_overrides",
-                }
-            )
-
-            child_step = ChildStep(
-                **attributes,
-                name=child_step_name,
-                blueprint=child_bp_path.as_posix(),
-                depends_on=depends_on,
-                parent=step.name,
-                blueprint_overrides=overrides,  # type: ignore[arg-type]
-                work_dir=child_out_dir,
-            )
+            updates = {
+                "blueprint": child_bp_path.as_posix(),
+                "blueprint_overrides": overrides,
+                "depends_on": depends_on,
+                "name": child_step_name,
+            }
+            child_step = LiveStep.from_step(step, parent=step, update=updates)
 
             yield child_step
             if i == len(time_slices) - 1:
@@ -503,7 +476,7 @@ class OverrideTransform(Transform):
 
         return RomsMarblBlueprint(**merged)
 
-    def __call__(self, step: Step) -> t.Iterable[Step]:
+    def __call__(self, step: LiveStep) -> t.Iterable[LiveStep]:
         """Apply the transform to a step.
 
         Parameters
@@ -521,19 +494,19 @@ class OverrideTransform(Transform):
 
         updated_bp = self.apply(blueprint, step.blueprint_overrides)
 
-        fs_manager = step.file_system(blueprint)
-        bp_renamed = bp_path.with_stem(f"{bp_path.stem}.{self.suffix()}").name
-        persist_as = fs_manager.work_dir / bp_renamed
-
-        serialize(persist_as, updated_bp)
-        clone = step.model_copy(
-            deep=True,
+        live_step = LiveStep.from_step(
+            step,
             update={
-                "blueprint_path": persist_as,
                 "blueprint_overrides": {},
+                "work_dir": updated_bp.runtime_params.output_dir,
             },
         )
-        return [clone]
+
+        bp_renamed = bp_path.with_stem(f"{bp_path.stem}.{self.suffix()}").name
+        live_step.blueprint_path = live_step.fsm.work_dir / bp_renamed
+
+        serialize(live_step.blueprint_path, updated_bp)
+        return [live_step]
 
     @staticmethod
     def suffix() -> str:
@@ -541,6 +514,25 @@ class OverrideTransform(Transform):
         a resource modified by this transform.
         """
         return "ovrd"
+
+
+def override_output_directory(step: LiveStep) -> LiveStep:
+    """Automatically override the output directory specified in a blueprint
+    to write to the C-Star home directories.
+
+    See `cstar.execution.file_system.DirectoryManager` for more detail
+    on the available set of home directories.
+
+    Returns
+    -------
+    list[Step]
+        The transformed steps.
+    """
+    sys_overrides = {"runtime_params": {"output_dir": step.fsm.root}}
+    override_transform = OverrideTransform(sys_overrides)
+    overridden_step_result = iter(override_transform(step))
+
+    return next(overridden_step_result)
 
 
 register_transform(Application.ROMS_MARBL.value, RomsMarblTimeSplitter())

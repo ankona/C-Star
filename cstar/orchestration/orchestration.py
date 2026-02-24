@@ -10,6 +10,10 @@ from cstar.base.env import ENV_CSTAR_DATA_HOME, ENV_CSTAR_RUNID, get_env_item
 from cstar.base.exceptions import CstarExpectationFailed
 from cstar.base.log import LoggingMixin
 from cstar.base.utils import slugify
+from cstar.execution.file_system import (
+    DirectoryManager,
+    JobFileSystemManager,
+)
 from cstar.orchestration.models import Step, Workplan
 from cstar.orchestration.utils import ENV_CSTAR_ORCH_REQD_ENV
 
@@ -112,13 +116,59 @@ class Status(IntEnum):
 _THandle = t.TypeVar("_THandle", bound=ProcessHandle)
 
 
+class LiveStep(Step):
+    """A Step enriched with runtime metadata."""
+
+    parent: t.Self | None = None
+    work_dir: Path | None = None
+    _fsm: JobFileSystemManager | None = None
+
+    @property
+    def get_working_dir(self) -> Path:
+        if self.work_dir is None:
+            if self.parent:
+                root_fsm = self.parent.fsm
+            else:
+                root_dir = DirectoryManager.data_home()
+                if run_id := os.environ.get(ENV_CSTAR_RUNID, ""):
+                    root_dir = root_dir.joinpath(run_id)
+                root_fsm = JobFileSystemManager(root_dir)
+
+            self.work_dir = root_fsm.tasks_dir / self.safe_name
+
+        return self.work_dir
+
+    @property
+    def fsm(self) -> JobFileSystemManager:
+        if self._fsm is None:
+            self._fsm = JobFileSystemManager(self.get_working_dir)
+        return self._fsm
+
+    @classmethod
+    def from_step(
+        cls,
+        step: Step,
+        parent: "LiveStep | Step | None" = None,
+        update: t.Mapping[str, t.Any] | None = None,
+    ) -> "LiveStep":
+        step_attrs = step.model_dump(by_alias=True)
+
+        if update:
+            step_attrs.update(update)
+
+        if parent:
+            step_attrs["parent"] = LiveStep.from_step(parent).model_dump(by_alias=True)
+
+        return LiveStep(**step_attrs)
+
+
 class Task(t.Generic[_THandle]):
     """A task represents a live-execution of a step."""
 
     status: Status
     """Current task status."""
 
-    step: Step
+    step: LiveStep
     """The step containing task configuration."""
 
     handle: _THandle
@@ -126,7 +176,7 @@ class Task(t.Generic[_THandle]):
 
     def __init__(
         self,
-        step: Step,
+        step: LiveStep,
         handle: _THandle,
         status: Status = Status.Unsubmitted,
     ) -> None:
@@ -217,7 +267,7 @@ class Planner(LoggingMixin):
     def store(self, n: str, key: t.Literal["status"], value: Status) -> None: ...
 
     @t.overload
-    def store(self, n: str, key: t.Literal["step"], value: Step) -> None: ...
+    def store(self, n: str, key: t.Literal["step"], value: LiveStep) -> None: ...
 
     @t.overload
     def store(self, n: str, key: t.Literal["task"], value: Task) -> None: ...
@@ -254,8 +304,8 @@ class Planner(LoggingMixin):
         self,
         n: str,
         key: t.Literal["step"],
-        default: Step | None = None,
-    ) -> Step | None: ...
+        default: LiveStep | None = None,
+    ) -> LiveStep | None: ...
 
     @t.overload
     def retrieve(
@@ -346,7 +396,11 @@ class Launcher(t.Protocol, t.Generic[_THandle]):
     """Contract required to implement a task launcher."""
 
     @classmethod
-    async def launch(cls, step: Step, dependencies: list[_THandle]) -> Task[_THandle]:
+    async def launch(
+        cls,
+        step: LiveStep,
+        dependencies: list[_THandle],
+    ) -> Task[_THandle]:
         """Launch a process for a step.
 
         Parameters
@@ -362,7 +416,11 @@ class Launcher(t.Protocol, t.Generic[_THandle]):
         ...
 
     @classmethod
-    async def query_status(cls, step: Step, item: Task[_THandle] | _THandle) -> Status:
+    async def query_status(
+        cls,
+        step: LiveStep,
+        item: Task[_THandle] | _THandle,
+    ) -> Status:
         """Retrieve the current status for a running task.
 
         Parameters
@@ -484,7 +542,7 @@ class Orchestrator(LoggingMixin):
             self.planner.retrieve_all(KEY_STATUS, filter_fn=lambda x: x in targets)
         )
 
-    def _locate_dependencies(self, step: Step) -> list[ProcessHandle] | None:
+    def _locate_dependencies(self, step: LiveStep) -> list[ProcessHandle] | None:
         """Look for the dependencies of the step.
 
         Returns
