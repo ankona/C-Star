@@ -1,8 +1,8 @@
 import typing as t
-from pathlib import Path
 
 import typer
 
+from cstar.execution.file_system import local_copy
 from cstar.orchestration.models import Workplan
 from cstar.orchestration.serialization import deserialize
 
@@ -11,7 +11,7 @@ app = typer.Typer()
 
 @app.command()
 def check(
-    path: t.Annotated[Path, typer.Argument(help="Path to the workplan")],
+    path: t.Annotated[str, typer.Argument(help="Path to the workplan")],
 ) -> bool:
     """Perform content validation on the workplan supplied by the user.
 
@@ -20,13 +20,16 @@ def check(
     bool
         `True` if valid
     """
+    wp: Workplan | None = None
+
     try:
-        _ = deserialize(path, Workplan)
-        print("The workplan is valid")
-        return True
-    except FileNotFoundError:
-        print(f"Workplan not found at path: {path}")
+        with local_copy(path) as wp_path:
+            wp = deserialize(wp_path, Workplan)
     except ValueError as ex:
         print(f"The workplan is invalid: {ex}")
+    except FileNotFoundError:
+        print(f"Workplan not found at path: {path}")
+    else:
+        print("The workplan is valid")
 
-    return False
+    return wp is not None

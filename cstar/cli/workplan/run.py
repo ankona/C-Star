@@ -5,6 +5,7 @@ from pathlib import Path
 import typer
 
 from cstar.cli.workplan.check import check
+from cstar.execution.file_system import local_copy
 from cstar.orchestration.dag_runner import build_and_run_dag
 
 app = typer.Typer()
@@ -12,7 +13,7 @@ app = typer.Typer()
 
 @app.command()
 def run(
-    path: t.Annotated[Path, typer.Argument(help="Path to a workplan file.")],
+    path: t.Annotated[str, typer.Argument(help="Path to a workplan file.")],
     run_id: t.Annotated[
         str,
         typer.Option(help="The unique identifier for an execution of the workplan."),
@@ -31,9 +32,11 @@ def run(
     if not check(path):
         return
 
+    output_path = Path(output_dir) if output_dir else None
+
     try:
-        output_path = Path(output_dir) if output_dir else None
-        asyncio.run(build_and_run_dag(path, run_id, output_path))
+        with local_copy(path) as wp_path:
+            asyncio.run(build_and_run_dag(wp_path, run_id, output_path))
         print("Workplan run has completed.")
     except Exception as ex:
         print(f"Workplan run has completed unsuccessfully: {ex!r}")
