@@ -1,10 +1,9 @@
+import subprocess
+import sys
 import typing as t
 
 import typer
-
-from cstar.execution.file_system import local_copy
-from cstar.orchestration.models import Workplan
-from cstar.orchestration.serialization import deserialize
+from rich import print
 
 app = typer.Typer()
 
@@ -20,16 +19,21 @@ def check(
     bool
         `True` if valid
     """
-    wp: Workplan | None = None
+    rc = 0
 
     try:
-        with local_copy(path) as wp_path:
-            wp = deserialize(wp_path, Workplan)
-    except ValueError as ex:
-        print(f"The workplan is invalid: {ex}")
-    except FileNotFoundError:
-        print(f"Workplan not found at path: {path}")
-    else:
-        print("The workplan is valid")
+        entrypoint = "cstar.entrypoint.cli.check_model"
+        args = " ".join(["--path", str(path), "--model", "workplan"])
 
-    return wp is not None
+        completed_process = subprocess.run(
+            f"{sys.executable} -m {entrypoint} {args}".split(),
+            capture_output=True,
+            text=True,
+        )
+
+        rc = completed_process.returncode
+        print(completed_process.stdout.strip())
+    except Exception as ex:
+        print(ex)
+
+    return rc == 0

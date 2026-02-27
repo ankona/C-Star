@@ -1,10 +1,9 @@
+import subprocess
+import sys
 import typing as t
 
 import typer
-
-from cstar.execution.file_system import local_copy
-from cstar.orchestration.models import RomsMarblBlueprint
-from cstar.orchestration.serialization import deserialize
+from rich import print
 
 app = typer.Typer()
 
@@ -20,16 +19,21 @@ def check(
     bool
         `True` if valid
     """
-    bp: RomsMarblBlueprint | None = None
+    rc = 0
 
     try:
-        with local_copy(path) as bp_path:
-            bp = deserialize(bp_path, RomsMarblBlueprint)
-    except ValueError as ex:
-        print(f"The blueprint is invalid: {ex}")
-    except FileNotFoundError:
-        print(f"Blueprint not found at path: {path}")
-    else:
-        print("The blueprint is valid")
+        entrypoint = "cstar.entrypoint.cli.check"
+        args = " ".join(["--path", str(path), "--model", "roms_marbl"])
 
-    return bp is not None
+        completed_process = subprocess.run(
+            f"{sys.executable} -m {entrypoint} {args}".split(),
+            capture_output=True,
+            text=True,
+        )
+
+        rc = completed_process.returncode
+        print(completed_process.stdout.strip())
+    except Exception as ex:
+        print(ex)
+
+    return rc == 0
