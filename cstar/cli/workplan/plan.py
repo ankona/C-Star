@@ -10,7 +10,10 @@ from cstar.base.utils import slugify
 from cstar.orchestration.models import Workplan
 from cstar.orchestration.orchestration import Planner
 from cstar.orchestration.serialization import deserialize
-from cstar.orchestration.transforms import RomsMarblTimeSplitter, WorkplanTransformer
+from cstar.orchestration.transforms import (
+    RomsMarblTimeSplitter,
+    WorkplanTransformer,
+)
 
 app = typer.Typer()
 
@@ -18,21 +21,23 @@ START_NODE: t.Literal["_cs_start_"] = "_cs_start_"
 TERMINAL_NODE: t.Literal["_cs_term_"] = "_cs_term_"
 
 if t.TYPE_CHECKING:
+    from networkx import DiGraph
+
     from cstar.orchestration.models import Step
 
 
-def _add_marker_nodes(graph: nx.DiGraph) -> nx.DiGraph:
+def _add_marker_nodes(graph: "DiGraph") -> "DiGraph":
     """Add node to serve as the entrypoint and exit point of the task graph.
     Parameters
     ----------
-    graph : nx.DiGraph
+    graph : DiGraph
         The source graph.
     Returns
     -------
-    nx.DiGraph
+    DiGraph
         A copy of the original graph with the entrypoint node inserted
     """
-    graph = t.cast("nx.DiGraph", graph.copy())
+    graph = t.cast("DiGraph", graph.copy())
 
     if START_NODE not in graph.nodes:
         graph.add_node(
@@ -74,8 +79,8 @@ def _add_marker_nodes(graph: nx.DiGraph) -> nx.DiGraph:
 
 
 def _initialize_from_graph(
-    workplan: Workplan, graph: nx.DiGraph
-) -> tuple[nx.DiGraph, dict[str, "Step"], dict[str, list[str]], dict[str, str]]:
+    workplan: "Workplan", graph: "DiGraph"
+) -> tuple["DiGraph", dict[str, "Step"], dict[str, list[str]], dict[str, str]]:
     """Prepare instance from the supplied graph."""
     step_map = {step.name: step for step in workplan.steps}
     dep_map = {
@@ -117,14 +122,14 @@ def _create_color_map(
 
 def _get_color_map(
     group_map: dict[str, str],
-    graph: nx.DiGraph,
+    graph: "DiGraph",
 ) -> tuple[str, ...]:
     """Return a pyplot-usable iterable containing per-node coloring.
     Paramters
     ---------
     group_map : dict[str, str]
         A mapping of node behavior names to colors
-    graph : nx.DiGraph
+    graph : DiGraph
         The graph to create a color-map for
     Returns
     -------
@@ -137,7 +142,7 @@ def _get_color_map(
 
 
 async def render(
-    planner: Planner,
+    planner: "Planner",
     image_directory: Path,
     layout: str = "circular",
     cmap: str = "",
@@ -146,8 +151,6 @@ async def render(
 
     Parameters
     ----------
-    graph : nx.DiGraph
-        The graph to render
     image_directory : Path
         The directory to render the file to
     layout : str

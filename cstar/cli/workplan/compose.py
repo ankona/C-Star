@@ -7,9 +7,7 @@ from pathlib import Path
 import typer
 
 from cstar.base.env import ENV_CSTAR_STATE_HOME, get_env_item
-from cstar.base.utils import (
-    additional_files_dir,
-)
+from cstar.base.utils import additional_files_dir
 from cstar.orchestration.dag_runner import build_and_run_dag
 
 app = typer.Typer()
