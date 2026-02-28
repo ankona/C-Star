@@ -22,8 +22,6 @@ class EnvVar:
     indirect_var: str = ""
     """An environment variable name to be used when the primary variable is not set."""
 
-    foo: str = "i am a magic string"
-
 
 @dataclass(slots=True)
 class EnvItem(EnvVar):

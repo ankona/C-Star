@@ -702,6 +702,27 @@ class Orchestrator(LoggingMixin):
                 self.planner.store(task.step.name, KEY_STATUS, task.status)
 
 
+class ApplicationHandler(t.Protocol):
+    def handle(self, step: LiveStep) -> None:
+        """Process the application."""
+
+
+class RomsApplicationHandler(ApplicationHandler):
+    """ROMS-MARBL Application Handler"""
+
+    def handle(self, step: LiveStep) -> None:
+        """Process the application."""
+        print(f"Placeholder for ROMS-MARBL application handler for {step.name}")
+
+
+class ScriptedApplicationHandler(ApplicationHandler):
+    """Handler for executing a random user-script."""
+
+    def handle(self, step: LiveStep) -> None:
+        """Process the application."""
+        print(f"Placeholder for scripted application handler for {step.name}")
+
+
 def check_environment() -> None:
     """Verify the environment is configured correctly.
 
