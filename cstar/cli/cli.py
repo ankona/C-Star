@@ -21,6 +21,8 @@ def main() -> None:
     try:
         for command_app, command_name in subcommands:
             if command_app.registered_groups or command_app.registered_commands:
+                # Only add the subcommand if it has registered groups or commands
+                # to avoid cluttering the CLI with empty subcommands.
                 app.add_typer(
                     command_app,
                     name=command_name,
